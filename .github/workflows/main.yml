@@ -8,8 +8,13 @@ jobs:
     runs-on: windows-latest
     env:
       VCPKG_ROOT: C:\vcpkg
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -27,7 +32,9 @@ jobs:
       - name: Setup vcpkg
         shell: pwsh
         run: |
-          git clone https://github.com/microsoft/vcpkg $env:VCPKG_ROOT
+          if (-not (Test-Path $env:VCPKG_ROOT)) {
+            git clone https://github.com/microsoft/vcpkg $env:VCPKG_ROOT
+          }
           & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat"
           & "$env:VCPKG_ROOT\vcpkg.exe" install --triplet x64-windows
 

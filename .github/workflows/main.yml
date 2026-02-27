@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
     env:
       VCPKG_ROOT: C:\vcpkg_custom
     steps:
@@ -28,7 +28,6 @@ jobs:
         shell: pwsh
         run: |
           git clone https://github.com/microsoft/vcpkg $env:VCPKG_ROOT
-          git -C $env:VCPKG_ROOT checkout 2024.04.26
           & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat"
           & "$env:VCPKG_ROOT\vcpkg.exe" install --triplet x64-windows
 

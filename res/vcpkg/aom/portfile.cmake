@@ -32,7 +32,10 @@ else()
 endif()
 
 set(aom_target_cpu "")
-if(VCPKG_TARGET_IS_UWP OR (VCPKG_TARGET_IS_WINDOWS AND VCPKG_TARGET_ARCHITECTURE MATCHES "^arm"))
+if(VCPKG_TARGET_IS_WINDOWS)
+    # Force generic on Windows to avoid NASM compatibility failures during configure.
+    set(aom_target_cpu "-DAOM_TARGET_CPU=generic")
+elseif(VCPKG_TARGET_IS_UWP OR (VCPKG_TARGET_IS_WINDOWS AND VCPKG_TARGET_ARCHITECTURE MATCHES "^arm"))
     # UWP + aom's assembler files result in weirdness and build failures
     # Also, disable assembly on ARM and ARM64 Windows to fix compilation issues.
     set(aom_target_cpu "-DAOM_TARGET_CPU=generic")
@@ -46,6 +49,7 @@ vcpkg_cmake_configure(
     SOURCE_PATH ${SOURCE_PATH}
     OPTIONS
         ${aom_target_cpu}
+        -DENABLE_NASM=OFF
         -DENABLE_DOCS=OFF
         -DENABLE_EXAMPLES=OFF
         -DENABLE_TESTDATA=OFF

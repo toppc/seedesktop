@@ -5,51 +5,49 @@ on:
 
 jobs:
   build:
-    runs-on: windows-2022
-    env:
-      VCPKG_ROOT: C:\vcpkg
-      VCPKG_DEFAULT_TRIPLET: x64-windows-static
+    runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Setup Rust
+      - name: Install dependencies
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/rustdesk-org/vcpkg/releases/download/v1.0/vcpkg-x64-windows-static.zip" -OutFile "vcpkg.zip"
+          Expand-Archive -Path "vcpkg.zip" -DestinationPath "C:\"
+          echo "VCPKG_ROOT=C:\vcpkg" >> $env:GITHUB_ENV
+
+      - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Setup Flutter
+      - name: Install Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: '3.24.3'
 
-      - name: Setup Python
+      - name: Install Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Setup vcpkg
-        shell: pwsh
-        run: |
-          if (Test-Path $env:VCPKG_ROOT) { Remove-Item -Recurse -Force $env:VCPKG_ROOT }
-          git clone https://github.com/microsoft/vcpkg $env:VCPKG_ROOT
-          git -C $env:VCPKG_ROOT checkout 120deac3062162151622ca4860575a33844ba10b
-          & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat"
-          & "$env:VCPKG_ROOT\vcpkg.exe" install --triplet x64-windows-static
-
-      - name: Install FRB codegen
+      - name: Install Codegen
         run: cargo install flutter_rust_bridge_codegen --version 1.80.1 --features uuid --locked
 
       - name: Generate bridge files
-        shell: pwsh
         run: |
           flutter_rust_bridge_codegen --rust-input ./src/flutter_ffi.rs --dart-output ./flutter/lib/generated_bridge.dart --c-output ./flutter/macos/Runner/bridge_generated.h
           Copy-Item "flutter/macos/Runner/bridge_generated.h" "flutter/ios/Runner/bridge_generated.h" -Force
 
-      - name: Build
-        shell: pwsh
+      - name: Build Flutter Packages
+        working-directory: ./flutter
+        run: flutter pub get
+
+      - name: Build Application
         run: python build.py --flutter
 
-      - name: Upload artifacts
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: see-desk-windows

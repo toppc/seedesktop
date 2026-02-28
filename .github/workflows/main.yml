@@ -5,49 +5,69 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
+    env:
+      VCPKG_ROOT: C:\vcpkg
+      VCPKG_DEFAULT_TRIPLET: x64-windows-static
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Install dependencies
-        run: |
-          Invoke-WebRequest -Uri "https://github.com/rustdesk-org/vcpkg/releases/download/v1.0/vcpkg-x64-windows-static.zip" -OutFile "vcpkg.zip"
-          Expand-Archive -Path "vcpkg.zip" -DestinationPath "C:\"
-          echo "VCPKG_ROOT=C:\vcpkg" >> $env:GITHUB_ENV
-
-      - name: Install Rust
+      - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install Flutter
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: stable
           flutter-version: '3.24.3'
+          channel: stable
 
-      - name: Install Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install Codegen
+      - name: Setup vcpkg and Build Dependencies
+        shell: pwsh
+        run: |
+          # 1. ניקוי והתקנת vcpkg
+          if (Test-Path $env:VCPKG_ROOT) { Remove-Item -Recurse -Force $env:VCPKG_ROOT }
+          git clone https://github.com/microsoft/vcpkg $env:VCPKG_ROOT
+          git -C $env:VCPKG_ROOT checkout 120deac3062162151622ca4860575a33844ba10b
+          & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat"
+          
+          # 2. התקנת החבילות (זה ייצור את התיקייה vcpkg_installed המקומית)
+          & "$env:VCPKG_ROOT\vcpkg.exe" install --triplet x64-windows-static
+          
+          # 3. התיקון הקריטי: יצירת המבנה ב-C והעתקה מלאה של התוצרים לשם
+          $targetPath = "$env:VCPKG_ROOT\installed\x64-windows-static"
+          New-Item -ItemType Directory -Force -Path $targetPath
+          
+          # העתקת הכל מתיקיית ההתקנה המקומית למיקום שבו magnum-opus מחפש
+          Copy-Item -Path ".\vcpkg_installed\x64-windows-static\*" -Destination "$targetPath\" -Recurse -Force
+          
+          Write-Host "VCPKG Structure is ready in C:\vcpkg\installed"
+
+      - name: Install FRB codegen
         run: cargo install flutter_rust_bridge_codegen --version 1.80.1 --features uuid --locked
 
+      - name: Prepare Flutter packages
+        shell: pwsh
+        working-directory: ./flutter
+        run: flutter pub get
+
       - name: Generate bridge files
+        shell: pwsh
         run: |
           flutter_rust_bridge_codegen --rust-input ./src/flutter_ffi.rs --dart-output ./flutter/lib/generated_bridge.dart --c-output ./flutter/macos/Runner/bridge_generated.h
           Copy-Item "flutter/macos/Runner/bridge_generated.h" "flutter/ios/Runner/bridge_generated.h" -Force
 
-      - name: Build Flutter Packages
-        working-directory: ./flutter
-        run: flutter pub get
-
-      - name: Build Application
+      - name: Build
+        shell: pwsh
         run: python build.py --flutter
 
-      - name: Upload Artifacts
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: see-desk-windows

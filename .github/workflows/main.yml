@@ -35,6 +35,10 @@ jobs:
           git -C $env:VCPKG_ROOT checkout 120deac3062162151622ca4860575a33844ba10b
           & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat"
           & "$env:VCPKG_ROOT\vcpkg.exe" install --triplet x64-windows-static
+          
+          # The Magic Fix: Copy the compiled audio/video packages to where Rust hardcoded the search path
+          New-Item -ItemType Directory -Force -Path "$env:VCPKG_ROOT\installed"
+          Copy-Item -Path ".\vcpkg_installed\*" -Destination "$env:VCPKG_ROOT\installed\" -Recurse -Force
 
       - name: Install FRB codegen
         run: cargo install flutter_rust_bridge_codegen --version 1.80.1 --features uuid --locked

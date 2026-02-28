@@ -20,7 +20,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.2' # נעלנו לגרסה יציבה תואמת
+          flutter-version: '3.22.2'
           channel: stable
 
       - name: Setup Python
@@ -43,6 +43,11 @@ jobs:
 
       - name: Install FRB codegen
         run: cargo install flutter_rust_bridge_codegen --version 1.80.1 --features uuid --locked
+
+      - name: Prepare Flutter packages
+        shell: pwsh
+        working-directory: ./flutter
+        run: flutter pub get
 
       - name: Generate bridge files
         shell: pwsh

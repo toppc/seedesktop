@@ -3,14 +3,19 @@ name: Manual Windows Build
 on:
   workflow_dispatch:
 
+concurrency:
+  group: windows-build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: windows-latest
     env:
       VCPKG_ROOT: C:\vcpkg
+      CARGO_TERM_COLOR: always
 
     steps:
-      - name: Checkout
+      - name: Checkout (with submodules)
         uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -23,23 +28,87 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Setup vcpkg (static triplet)
+      - name: Cache Cargo registry/git
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\.cargo\registry
+            ~\.cargo\git
+          key: cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Setup vcpkg
         shell: pwsh
         run: |
           if (-not (Test-Path $env:VCPKG_ROOT)) {
             git clone https://github.com/microsoft/vcpkg $env:VCPKG_ROOT
           }
           & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat"
-          & "$env:VCPKG_ROOT\vcpkg.exe" install --triplet x64-windows-static
 
+      - name: Patch AOM portfile for Windows CI stability
+        shell: pwsh
+        run: |
+          $py = @'
+from pathlib import Path
+
+p = Path("res/vcpkg/aom/portfile.cmake")
+t = p.read_text(encoding="utf-8")
+
+if 'if(VCPKG_TARGET_IS_WINDOWS)' not in t:
+    t = t.replace(
+        'set(aom_target_cpu "")',
+        'set(aom_target_cpu "")\nif(VCPKG_TARGET_IS_WINDOWS)\n    # Force generic on Windows to avoid NASM compatibility failures during configure.\n    set(aom_target_cpu "-DAOM_TARGET_CPU=generic")\nendif()',
+        1
+    )
+
+if '-DENABLE_NASM=OFF' not in t:
+    t = t.replace(
+        '${aom_target_cpu}\n',
+        '${aom_target_cpu}\n        -DENABLE_NASM=OFF\n',
+        1
+    )
+
+p.write_text(t, encoding="utf-8")
+print("Patched:", p)
+'@
+          python -c $py
+
+      - name: Install vcpkg dependencies (static)
+        shell: pwsh
+        run: |
+          & "$env:VCPKG_ROOT\vcpkg.exe" install --triplet x64-windows-static
           "VCPKGRS_TRIPLET=x64-windows-static" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "VCPKGRS_DYNAMIC=0" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Fix Opus header layout for magnum-opus
+        shell: pwsh
+        run: |
+          $inc = "C:\vcpkg\installed\x64-windows-static\include"
+          $opusDir = Join-Path $inc "opus"
+          New-Item -ItemType Directory -Force -Path $opusDir | Out-Null
+
+          $headers = @(
+            "opus.h",
+            "opus_defines.h",
+            "opus_multistream.h",
+            "opus_projection.h",
+            "opus_types.h"
+          )
+
+          foreach ($h in $headers) {
+            $src = Join-Path $inc $h
+            if (Test-Path $src) {
+              Copy-Item $src (Join-Path $opusDir $h) -Force
+            }
+          }
+
+          Get-ChildItem $opusDir
 
       - name: Install FRB codegen
         run: cargo install flutter_rust_bridge_codegen --version 1.80.1 --features uuid --locked
@@ -58,6 +127,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: see-desk-windows
+          if-no-files-found: warn
           path: |
             target/release/*.exe
             flutter/build/windows/**/*

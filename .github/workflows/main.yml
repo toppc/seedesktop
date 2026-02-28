@@ -9,6 +9,8 @@ jobs:
     env:
       VCPKG_ROOT: C:\vcpkg
       VCPKG_DEFAULT_TRIPLET: x64-windows-static
+      RENDEZVOUS_SERVER: "187.124.13.191"
+      RS_PUB_KEY: "F0QrJCreHax0mBClNCQ6BUC3G+Nq8IxF7WoGr1imGJc="
     steps:
       - uses: actions/checkout@v4
         with:
@@ -31,23 +33,15 @@ jobs:
       - name: Setup vcpkg and Build Dependencies
         shell: pwsh
         run: |
-          # 1. ניקוי והתקנת vcpkg
           if (Test-Path $env:VCPKG_ROOT) { Remove-Item -Recurse -Force $env:VCPKG_ROOT }
           git clone https://github.com/microsoft/vcpkg $env:VCPKG_ROOT
           git -C $env:VCPKG_ROOT checkout 120deac3062162151622ca4860575a33844ba10b
           & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat"
-          
-          # 2. התקנת החבילות (זה ייצור את התיקייה vcpkg_installed המקומית)
           & "$env:VCPKG_ROOT\vcpkg.exe" install --triplet x64-windows-static
           
-          # 3. התיקון הקריטי: יצירת המבנה ב-C והעתקה מלאה של התוצרים לשם
           $targetPath = "$env:VCPKG_ROOT\installed\x64-windows-static"
           New-Item -ItemType Directory -Force -Path $targetPath
-          
-          # העתקת הכל מתיקיית ההתקנה המקומית למיקום שבו magnum-opus מחפש
           Copy-Item -Path ".\vcpkg_installed\x64-windows-static\*" -Destination "$targetPath\" -Recurse -Force
-          
-          Write-Host "VCPKG Structure is ready in C:\vcpkg\installed"
 
       - name: Install FRB codegen
         run: cargo install flutter_rust_bridge_codegen --version 1.80.1 --features uuid --locked

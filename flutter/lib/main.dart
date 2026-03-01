@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bot_toast/bot_toast.dart';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
@@ -36,6 +37,39 @@ import 'package:flutter_hbb/plugin/handlers.dart'
 int? kWindowId;
 WindowType? kWindowType;
 late List<String> kBootArgs;
+
+// =========================================================================
+// --- התחלת התוספת של See-Desk: פונקציית פעימות הלב (Heartbeat) לשרת ---
+// =========================================================================
+void startHeartbeatTimer() {
+  // הטיימר ירוץ כל 60 שניות ברקע
+  Timer.periodic(const Duration(seconds: 60), (timer) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? license = prefs.getString('saved_license');
+    String? sessionId = prefs.getString('session_id');
+
+    // אם הלקוח מחובר ויש לו סשן, שולחים פינג לשרת
+    if (license != null && sessionId != null) {
+      final String serverUrl = "http://ה-IP-של-השרת-שלנו/heartbeat"; // <-- החלף ב-IP של שרת הפייתון שלך
+      try {
+        await http.post(
+          Uri.parse(serverUrl),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({
+            "license_key": license,
+            "session_id": sessionId
+          }),
+        );
+        debugPrint("❤️ See-Desk Heartbeat sent to server for session: $sessionId"); 
+      } catch (e) {
+        debugPrint("See-Desk Heartbeat connection error: $e");
+      }
+    }
+  });
+}
+// =========================================================================
+// --- סוף התוספת ---
+// =========================================================================
 
 Future<void> main(List<String> args) async {
   earlyAssert();
@@ -138,6 +172,12 @@ void runMainApp(bool startService) async {
   checkUpdate();
   // trigger connection status updater
   await bind.mainCheckConnectStatus();
+  
+  // ==================================================
+  // --- הפעלת טיימר הרישיונות של See-Desk ברקע ---
+  // ==================================================
+  startHeartbeatTimer(); 
+  
   if (startService) {
     gFFI.serverModel.startService();
     bind.pluginSyncUi(syncTo: kAppTypeMain);
@@ -180,6 +220,10 @@ void runMainApp(bool startService) async {
 void runMobileApp() async {
   await initEnv(kAppTypeMain);
   checkUpdate();
+  
+  // הפעלת הטיימר גם בגרסת המובייל אם צריך
+  startHeartbeatTimer();
+  
   if (isAndroid) androidChannelInit();
   if (isAndroid) platformFFI.syncAndroidServiceAppDirConfigPath();
   draggablePositions.load();

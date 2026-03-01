@@ -53,8 +53,9 @@ jobs:
                   content = file.read()
               
               if 'pub const RENDEZVOUS_SERVER' in content or 'pub const RS_PUB_KEY' in content:
-                  content = re.sub(r'pub const RENDEZVOUS_SERVER.*?;', 'pub const RENDEZVOUS_SERVER: &\'static str = "187.124.13.191";', content)
-                  content = re.sub(r'pub const RS_PUB_KEY.*?;', 'pub const RS_PUB_KEY: &\'static str = "F0QrJCreHax0mBClNCQ6BUC3G+Nq8IxF7WoGr1imGJc=";', content)
+                  # הוספנו נקודתיים כדי שלא ימחק בטעות את משתנה הרבים!
+                  content = re.sub(r'pub const RENDEZVOUS_SERVER:[^;]+;', 'pub const RENDEZVOUS_SERVER: &\'static str = "187.124.13.191";', content)
+                  content = re.sub(r'pub const RS_PUB_KEY:[^;]+;', 'pub const RS_PUB_KEY: &\'static str = "F0QrJCreHax0mBClNCQ6BUC3G+Nq8IxF7WoGr1imGJc=";', content)
                   
                   with open(f, 'w', encoding='utf-8') as file:
                       file.write(content)

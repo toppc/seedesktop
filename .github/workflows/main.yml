@@ -7,14 +7,37 @@ jobs:
   build:
     runs-on: windows-2022
     env:
+      # --- הגדרות השרת והרישוי שלך ---
       VCPKG_ROOT: C:\vcpkg
       VCPKG_DEFAULT_TRIPLET: x64-windows-static
-      RENDEZVOUS_SERVER: "187.124.13.191"
-      RS_PUB_KEY: "F0QrJCreHax0mBClNCQ6BUC3G+Nq8IxF7WoGr1imGJc="
+      # ה-IP של שרת ההוסטינגר שלך
+      RENDEZVOUS_SERVER: "187.124.13.191" 
+      # המפתח הסודי (Key) מהשרת
+      RS_PUB_KEY: "F0QrJCreHax0mBClNCQ6BUC3G+Nq8IxF7WoGr1imGJc=" 
+      # ------------------------------------
+
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      # --- שלב חדש: החלפת המיתוג (לוגואים) ---
+      - name: Apply Custom Branding
+        shell: pwsh
+        run: |
+          Write-Host "Starting rebranding process..."
+          # 1. החלפת האייקון של קובץ ה-EXE בווינדוס
+          Copy-Item -Path ".\custom_branding\app_icon.ico" -Destination ".\flutter\windows\runner\resources\app_icon.ico" -Force
+          
+          # 2. החלפת תמונות בתוך האפליקציה (Flutter Assets)
+          # אנחנו מחליפים כמה קבצים שונים בלוגו שלך כדי לכסות את כל המקומות
+          Copy-Item -Path ".\custom_branding\logo.png" -Destination ".\flutter\assets\images\logo.png" -Force
+          Copy-Item -Path ".\custom_branding\rustdesk.png" -Destination ".\flutter\assets\images\rustdesk.png" -Force
+          # החלפה נוספת ליתר ביטחון (לפעמים משתמשים גם בזה)
+          Copy-Item -Path ".\custom_branding\logo.png" -Destination ".\flutter\assets\images\desktop.png" -Force
+          
+          Write-Host "Rebranding applied successfully!"
+      # ----------------------------------------
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable

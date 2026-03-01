@@ -50,7 +50,7 @@ void startHeartbeatTimer() {
 
     // אם הלקוח מחובר ויש לו סשן, שולחים פינג לשרת
     if (license != null && sessionId != null) {
-      final String serverUrl = "http://ה-IP-של-השרת-שלנו/heartbeat"; // <-- החלף ב-IP של שרת הפייתון שלך
+      final String serverUrl = "http://187.124.13.191/heartbeat"; 
       try {
         await http.post(
           Uri.parse(serverUrl),
@@ -60,7 +60,7 @@ void startHeartbeatTimer() {
             "session_id": sessionId
           }),
         );
-        debugPrint("❤️ See-Desk Heartbeat sent to server for session: $sessionId"); 
+        debugPrint("❤️ See-Desk Heartbeat sent to 187.124.13.191 for session: $sessionId"); 
       } catch (e) {
         debugPrint("See-Desk Heartbeat connection error: $e");
       }

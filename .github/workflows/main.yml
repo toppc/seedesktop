@@ -43,7 +43,6 @@ jobs:
         with:
           python-version: "3.11"
 
-      # --- השלב החדש: צריבת השרת שלך ישירות לקוד המקור של התוכנה ---
       - name: Hardcode Server and Key
         shell: python
         run: |
@@ -54,14 +53,12 @@ jobs:
                   content = file.read()
               
               if 'pub const RENDEZVOUS_SERVER' in content or 'pub const RS_PUB_KEY' in content:
-                  # מחליף את ברירת המחדל הריקה בכתובת שלך
                   content = re.sub(r'pub const RENDEZVOUS_SERVER:\s*&\'static str\s*=\s*".*";', 'pub const RENDEZVOUS_SERVER: &\'static str = "187.124.13.191";', content)
                   content = re.sub(r'pub const RS_PUB_KEY:\s*&\'static str\s*=\s*".*";', 'pub const RS_PUB_KEY: &\'static str = "F0QrJCreHax0mBClNCQ6BUC3G+Nq8IxF7WoGr1imGJc=";', content)
                   
                   with open(f, 'w', encoding='utf-8') as file:
                       file.write(content)
-                  print(f"✅ Injected your custom server and key into {f}")
-      # -------------------------------------------------------------
+                  print(f"[SUCCESS] Injected your custom server and key into {f}")
 
       - name: Setup vcpkg and Build Dependencies
         shell: pwsh
@@ -99,6 +96,7 @@ jobs:
         run: |
           if (Test-Path "target\release\rustdesk.exe") {
               Rename-Item -Path "target\release\rustdesk.exe" -NewName "See-Desk.exe"
+              Write-Host "Renamed to See-Desk.exe successfully!"
           }
 
       - name: Upload artifacts

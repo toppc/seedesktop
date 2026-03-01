@@ -53,8 +53,8 @@ jobs:
                   content = file.read()
               
               if 'pub const RENDEZVOUS_SERVER' in content or 'pub const RS_PUB_KEY' in content:
-                  content = re.sub(r'pub const RENDEZVOUS_SERVER:\s*&\'static str\s*=\s*".*";', 'pub const RENDEZVOUS_SERVER: &\'static str = "187.124.13.191";', content)
-                  content = re.sub(r'pub const RS_PUB_KEY:\s*&\'static str\s*=\s*".*";', 'pub const RS_PUB_KEY: &\'static str = "F0QrJCreHax0mBClNCQ6BUC3G+Nq8IxF7WoGr1imGJc=";', content)
+                  content = re.sub(r'pub const RENDEZVOUS_SERVER.*?;', 'pub const RENDEZVOUS_SERVER: &\'static str = "187.124.13.191";', content)
+                  content = re.sub(r'pub const RS_PUB_KEY.*?;', 'pub const RS_PUB_KEY: &\'static str = "F0QrJCreHax0mBClNCQ6BUC3G+Nq8IxF7WoGr1imGJc=";', content)
                   
                   with open(f, 'w', encoding='utf-8') as file:
                       file.write(content)
@@ -94,9 +94,10 @@ jobs:
       - name: Rename Executable
         shell: pwsh
         run: |
-          if (Test-Path "target\release\rustdesk.exe") {
-              Rename-Item -Path "target\release\rustdesk.exe" -NewName "See-Desk.exe"
-              Write-Host "Renamed to See-Desk.exe successfully!"
+          $files = Get-ChildItem -Path . -Filter "rustdesk.exe" -Recurse
+          foreach ($file in $files) {
+              Rename-Item -Path $file.FullName -NewName "See-Desk.exe" -Force
+              Write-Host "Renamed $($file.FullName) to See-Desk.exe successfully!"
           }
 
       - name: Upload artifacts

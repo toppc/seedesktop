@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // <-- תוספת שלנו
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/common/widgets/audio_input.dart';
 import 'package:flutter_hbb/common/widgets/setting_widgets.dart';
@@ -26,6 +27,9 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../common/widgets/dialog.dart';
 import '../../common/widgets/login.dart';
+// התוספת שלנו - יבוא חלון הלוגין המותאם:
+// בהנחה ששמרת את הקוד שנתתי לך בקובץ הזה באותה תיקייה של widgets
+import '../../common/widgets/see_desk_login_dialog.dart'; 
 
 const double _kTabWidth = 200;
 const double _kTabHeight = 42;
@@ -1994,6 +1998,9 @@ class _DisplayState extends State<_Display> {
   }
 }
 
+// ============================================================================
+// התוספת שלנו ל- See-Desk - מסך האזור האישי (Account) שקורא ל-SharedPreferences
+// ============================================================================
 class _Account extends StatefulWidget {
   const _Account({Key? key}) : super(key: key);
 
@@ -2002,53 +2009,124 @@ class _Account extends StatefulWidget {
 }
 
 class _AccountState extends State<_Account> {
+  String? maskedLicense;
+  int? maxConnections;
+  String? sessionId;
+  String? fullLicense;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  // שולף נתונים מהזיכרון כדי לבדוק אם יש רישיון שמור
+  Future<void> _loadUserData() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      maskedLicense = prefs.getString('masked_license');
+      maxConnections = prefs.getInt('max_connections');
+      sessionId = prefs.getString('session_id');
+      fullLicense = prefs.getString('saved_license');
+    });
+  }
+
+  // התנתקות וניתוק הרישיון
+  Future<void> _logout() async {
+    if (fullLicense != null && sessionId != null) {
+      final String serverUrl = "http://187.124.13.191/logout";
+      try {
+        // אין צורך לחכות לתשובה, פשוט שולחים לשרת להתנתק
+        // ignore: unused_local_variable
+        final response = await http.post( // הוספתי ייבוא של http אם צריך
+          Uri.parse(serverUrl),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({
+            "license_key": fullLicense,
+            "session_id": sessionId
+          }),
+        );
+      } catch (e) {
+        print("Network error on logout: $e");
+      }
+    }
+
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.remove('saved_license');
+    await prefs.remove('masked_license');
+    await prefs.remove('session_id');
+    await prefs.remove('max_connections');
+
+    setState(() {
+      maskedLicense = null;
+      maxConnections = null;
+      sessionId = null;
+      fullLicense = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final scrollController = ScrollController();
     return ListView(
       controller: scrollController,
       children: [
-        _Card(title: 'Account', children: [accountAction(), useInfo()]),
+        _Card(
+            title: 'Account',
+            children: [
+              maskedLicense != null
+                  ? _buildLoggedInView()
+                  : _buildLoggedOutView()
+            ]),
       ],
     ).marginOnly(bottom: _kListViewBottomMargin);
   }
 
-  Widget accountAction() {
-    return Obx(() => _Button(
-        gFFI.userModel.userName.value.isEmpty
-            ? 'Login'
-            : '${translate('Logout')} (${gFFI.userModel.accountLabelWithHandle})',
-        () => {
-              gFFI.userModel.userName.value.isEmpty
-                  ? loginDialog()
-                  : logOutConfirmDialog()
-            }));
-  }
-
-  Widget useInfo() {
-    text(String key, String value) {
-      return Align(
-        alignment: Alignment.centerLeft,
-        child: SelectionArea(child: Text('${translate(key)}: $value'))
-            .marginSymmetric(vertical: 4),
-      );
-    }
-
-    return Obx(() => Offstage(
-          offstage: gFFI.userModel.userName.value.isEmpty,
+  // כשיש רישיון (מחובר)
+  Widget _buildLoggedInView() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue, width: 1)),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (gFFI.userModel.displayName.value.trim().isNotEmpty &&
-                  gFFI.userModel.displayName.value.trim() !=
-                      gFFI.userModel.userName.value.trim())
-                text('Display Name', gFFI.userModel.displayName.value.trim()),
-              text('Username', gFFI.userModel.userName.value),
-              // text('Group', gFFI.groupModel.groupName.value),
+              Text("רישיון פעיל: $maskedLicense",
+                  style: const TextStyle(fontSize: 16)),
+              const SizedBox(height: 8),
+              Text("חיבורים במקביל: 1 / $maxConnections",
+                  style: const TextStyle(fontSize: 16)),
             ],
           ),
-        )).marginOnly(left: 18, top: 16);
+        ).marginOnly(left: 15, right: 15, bottom: 15),
+        _Button(
+            'התנתק / החלף רישיון',
+            _logout,
+            style: ButtonStyle(
+              backgroundColor: MaterialStateProperty.all<Color>(Colors.red),
+              foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
+            ))
+      ],
+    );
+  }
+
+  // כשאין רישיון (מנותק)
+  Widget _buildLoggedOutView() {
+    return _Button('Login (התחבר)', () async {
+      // פותח את חלון הלוגין המותאם שלנו שכתבנו בקובץ see_desk_login_dialog.dart
+      await showSeeDeskLoginDialog(context);
+      // אחרי שהחלון נסגר, בודקים אם יש נתונים חדשים
+      _loadUserData();
+    });
   }
 }
+// ============================================================================
+
 
 class _Checkbox extends StatefulWidget {
   final String label;
@@ -2323,7 +2401,7 @@ class _AboutState extends State<_About> {
       final scrollController = ScrollController();
       return SingleChildScrollView(
         controller: scrollController,
-        child: _Card(title: translate('About RustDesk'), children: [
+        child: _Card(title: translate('About See-Desk'), children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -2342,7 +2420,7 @@ class _AboutState extends State<_About> {
                         .marginSymmetric(vertical: 4.0)),
               InkWell(
                   onTap: () {
-                    launchUrlString('https://rustdesk.com/privacy.html');
+                    launchUrlString('https://toppc.co.il/privacy');
                   },
                   child: Text(
                     translate('Privacy Statement'),
@@ -2350,7 +2428,7 @@ class _AboutState extends State<_About> {
                   ).marginSymmetric(vertical: 4.0)),
               InkWell(
                   onTap: () {
-                    launchUrlString('https://rustdesk.com');
+                    launchUrlString('https://toppc.co.il');
                   },
                   child: Text(
                     translate('Website'),
@@ -2368,7 +2446,7 @@ class _AboutState extends State<_About> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Copyright © ${DateTime.now().toString().substring(0, 4)} Purslane Ltd.\n$license',
+                            'Copyright © ${DateTime.now().toString().substring(0, 4)} Eli-Top Computers.\n$license',
                             style: const TextStyle(color: Colors.white),
                           ),
                           Text(

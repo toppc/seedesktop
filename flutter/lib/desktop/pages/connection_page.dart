@@ -632,7 +632,7 @@ class _ConnectionPageState extends State<ConnectionPage>
 Future<bool> checkLicenseWithServer(String key) async {
   try {
     final response = await http.post(
-      Uri.parse('http://187.124.13.191:5000/verify'),
+      Uri.parse('http://187.124.13.191/verify'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'license_key': key}),
     ).timeout(const Duration(seconds: 5));

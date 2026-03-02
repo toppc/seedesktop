@@ -145,7 +145,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Failed to make direct connection to remote desktop", "Nepodarilo sa nadviazať priamu komunikáciu so vzdialenou plochou"),
         ("Set Password", "Nastaviť heslo"),
         ("OS Password", "Heslo do operačného systému"),
-        ("install_tip", "V niektorých prípadoch See-Desk nefunguje správne z dôvodu riadenia užívateľských oprávnení (UAC). Vyhnete sa tomu kliknutím na nižšie zobrazene tlačítko a nainštalovaním RuskDesk do systému."),
+        ("install_tip", "V niektorých prípadoch See-Desk nefunguje správne z dôvodu riadenia užívateľských oprávnení (UAC). Vyhnete sa tomu kliknutím na nižšie zobrazene tlačítko a nainštalovaním See-Desk do systému."),
         ("Click to upgrade", "Kliknutím nainštalujete aktualizáciu"),
         ("Configure", "Nastaviť"),
         ("config_acc", "Aby bolo možné na diaľku ovládať vašu plochu, je potrebné aplikácii See-Desk udeliť práva \"Dostupnosť\"."),

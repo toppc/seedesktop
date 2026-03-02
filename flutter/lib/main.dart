@@ -39,7 +39,7 @@ WindowType? kWindowType;
 late List<String> kBootArgs;
 
 // =========================================================================
-// --- התחלת התוספת של See-Desk: פונקציית פעימות הלב (Heartbeat) לשרת ---
+// --- התחלת התוספת של See-Desktop: פונקציית פעימות הלב (Heartbeat) לשרת ---
 // =========================================================================
 void startHeartbeatTimer() {
   // הטיימר ירוץ כל 60 שניות ברקע
@@ -60,9 +60,9 @@ void startHeartbeatTimer() {
             "session_id": sessionId
           }),
         );
-        debugPrint("❤️ See-Desk Heartbeat sent to 187.124.13.191 for session: $sessionId"); 
+        debugPrint("❤️ See-Desktop Heartbeat sent to 187.124.13.191 for session: $sessionId"); 
       } catch (e) {
-        debugPrint("See-Desk Heartbeat connection error: $e");
+        debugPrint("See-Desktop Heartbeat connection error: $e");
       }
     }
   });
@@ -174,7 +174,7 @@ void runMainApp(bool startService) async {
   await bind.mainCheckConnectStatus();
   
   // ==================================================
-  // --- הפעלת טיימר הרישיונות של See-Desk ברקע ---
+  // --- הפעלת טיימר הרישיונות של See-Desktop ברקע ---
   // ==================================================
   startHeartbeatTimer(); 
   

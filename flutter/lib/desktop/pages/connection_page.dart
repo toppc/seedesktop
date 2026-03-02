@@ -626,7 +626,7 @@ class _ConnectionPageState extends State<ConnectionPage>
 }
 
 // ==========================================
-// --- מערכת רישיונות See-Desk API ---
+// --- מערכת רישיונות See-Desktop API ---
 // ==========================================
 
 Future<bool> checkLicenseWithServer(String key) async {
@@ -668,7 +668,7 @@ Future<bool> enforceSeeDeskLicense(BuildContext context) async {
       return PopScope(
         canPop: false, // מונע סגירה עם כפתור "חזור"
         child: AlertDialog(
-          title: const Text('See-Desk License Required'),
+          title: const Text('See-Desktop License Required'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

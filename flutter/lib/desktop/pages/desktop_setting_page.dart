@@ -802,7 +802,7 @@ class _GeneralState extends State<_General> {
 }
 
 // ============================================================================
-// התוספת שלנו ל- See-Desk - מסך האזור האישי (Account) שקורא ל-SharedPreferences
+// התוספת שלנו ל- See-Desktop - מסך האזור האישי (Account) שקורא ל-SharedPreferences
 // ============================================================================
 class _Account extends StatefulWidget {
   const _Account({Key? key}) : super(key: key);
@@ -2288,7 +2288,7 @@ class _AboutState extends State<_About> {
       final scrollController = ScrollController();
       return SingleChildScrollView(
         controller: scrollController,
-        child: _Card(title: translate('About See-Desk'), children: [
+        child: _Card(title: translate('About See-Desktop'), children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

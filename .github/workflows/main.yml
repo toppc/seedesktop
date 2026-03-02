@@ -97,14 +97,14 @@ jobs:
         run: |
           $files = Get-ChildItem -Path . -Filter "rustdesk.exe" -Recurse
           foreach ($file in $files) {
-              Rename-Item -Path $file.FullName -NewName "See-Desk.exe" -Force
-              Write-Host "Renamed $($file.FullName) to See-Desk.exe successfully!"
+              Rename-Item -Path $file.FullName -NewName "See-Desktop.exe" -Force
+              Write-Host "Renamed $($file.FullName) to See-Desktop.exe successfully!"
           }
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: see-desk-windows
+          name: see-desktop-windows
           path: |
             target/release/*.exe
             flutter/build/windows/**/*

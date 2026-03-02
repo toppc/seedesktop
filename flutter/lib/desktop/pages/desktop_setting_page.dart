@@ -5,7 +5,8 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // <-- תוספת שלנו
+import 'package:http/http.dart' as http; // <-- התיקון שלנו: ייבוא ספריית רשת
+import 'package:shared_preferences/shared_preferences.dart'; // <-- תוספת שלנו: זיכרון מקומי
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/common/widgets/audio_input.dart';
 import 'package:flutter_hbb/common/widgets/setting_widgets.dart';
@@ -27,9 +28,9 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../common/widgets/dialog.dart';
 import '../../common/widgets/login.dart';
-// התוספת שלנו - יבוא חלון הלוגין המותאם:
-// בהנחה ששמרת את הקוד שנתתי לך בקובץ הזה באותה תיקייה של widgets
-import '../../common/widgets/see_desk_login_dialog.dart'; 
+
+// התיקון שלנו - הנתיב המדויק לחלון הלוגין שיצרת:
+import '../widgets/see_desk_login_dialog.dart'; 
 
 const double _kTabWidth = 200;
 const double _kTabHeight = 42;
@@ -255,7 +256,6 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
   }
 
   Widget _buildBlock({required List<Widget> children}) {
-    // check both mouseMoveTime and videoConnCount
     return Obx(() {
       final videoConnBlock =
           _canBeBlocked.value && stateGlobal.videoConnCount > 0;
@@ -492,7 +492,6 @@ class _GeneralState extends State<_General> {
           kOptionOpenNewConnInTabs,
           isServer: false,
         ),
-        // though this is related to GUI, but opengl problem affects all users, so put in config rather than local
         if (isLinux)
           Tooltip(
             message: translate('software_render_tip'),
@@ -561,7 +560,6 @@ class _GeneralState extends State<_General> {
       ],
     ];
 
-    // Add client-side wakelock option for desktop platforms
     if (!bind.isIncomingOnly()) {
       children.add(_OptionCheckBox(
         context,
@@ -803,11 +801,134 @@ class _GeneralState extends State<_General> {
   }
 }
 
-enum _AccessMode {
-  custom,
-  full,
-  view,
+// ============================================================================
+// התוספת שלנו ל- See-Desk - מסך האזור האישי (Account) שקורא ל-SharedPreferences
+// ============================================================================
+class _Account extends StatefulWidget {
+  const _Account({Key? key}) : super(key: key);
+
+  @override
+  State<_Account> createState() => _AccountState();
 }
+
+class _AccountState extends State<_Account> {
+  String? maskedLicense;
+  int? maxConnections;
+  String? sessionId;
+  String? fullLicense;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  // שולף נתונים מהזיכרון כדי לבדוק אם יש רישיון שמור
+  Future<void> _loadUserData() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      maskedLicense = prefs.getString('masked_license');
+      maxConnections = prefs.getInt('max_connections');
+      sessionId = prefs.getString('session_id');
+      fullLicense = prefs.getString('saved_license');
+    });
+  }
+
+  // התנתקות וניתוק הרישיון
+  Future<void> _logout() async {
+    if (fullLicense != null && sessionId != null) {
+      final String serverUrl = "http://187.124.13.191/logout";
+      try {
+        // שולחים לשרת להתנתק
+        // ignore: unused_local_variable
+        final response = await http.post(
+          Uri.parse(serverUrl),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({
+            "license_key": fullLicense,
+            "session_id": sessionId
+          }),
+        );
+      } catch (e) {
+        print("Network error on logout: $e");
+      }
+    }
+
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.remove('saved_license');
+    await prefs.remove('masked_license');
+    await prefs.remove('session_id');
+    await prefs.remove('max_connections');
+
+    setState(() {
+      maskedLicense = null;
+      maxConnections = null;
+      sessionId = null;
+      fullLicense = null;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scrollController = ScrollController();
+    return ListView(
+      controller: scrollController,
+      children: [
+        _Card(
+            title: 'Account',
+            children: [
+              maskedLicense != null
+                  ? _buildLoggedInView()
+                  : _buildLoggedOutView()
+            ]),
+      ],
+    ).marginOnly(bottom: _kListViewBottomMargin);
+  }
+
+  // כשיש רישיון (מחובר)
+  Widget _buildLoggedInView() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue, width: 1)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("רישיון פעיל: $maskedLicense",
+                  style: const TextStyle(fontSize: 16)),
+              const SizedBox(height: 8),
+              Text("חיבורים במקביל: 1 / $maxConnections",
+                  style: const TextStyle(fontSize: 16)),
+            ],
+          ),
+        ).marginOnly(left: 15, right: 15, bottom: 15),
+        _Button(
+            'התנתק / החלף רישיון',
+            _logout,
+            style: ButtonStyle(
+              backgroundColor: MaterialStateProperty.all<Color>(Colors.red),
+              foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
+            ))
+      ],
+    );
+  }
+
+  // כשאין רישיון (מנותק)
+  Widget _buildLoggedOutView() {
+    return _Button('Login (התחבר)', () async {
+      // פותח את חלון הלוגין המותאם שלנו שכתבנו בקובץ see_desk_login_dialog.dart
+      await showSeeDeskLoginDialog(context);
+      // אחרי שהחלון נסגר, בודקים אם יש נתונים חדשים
+      _loadUserData();
+    });
+  }
+}
+// ============================================================================
 
 class _Safety extends StatefulWidget {
   const _Safety({Key? key}) : super(key: key);
@@ -1217,8 +1338,6 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
             if (usePassword && !isChangePermanentPasswordDisabled())
               _SubButton('Set permanent password', setPasswordDialog,
                   permEnabled && !locked),
-            // if (usePassword)
-            //   hide_cm(!locked).marginOnly(left: _kContentHSubMargin - 6),
             if (usePassword) radios[2],
           ]);
         })));
@@ -1279,7 +1398,6 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
       _OptionCheckBox(context, 'Enable direct IP access', kOptionDirectServer,
           update: update, enabled: !locked),
       () {
-        // Simple temp wrapper for PR check
         tmpWrapper() {
           bool enabled = option2bool(kOptionDirectServer,
               bind.mainGetOptionSync(key: kOptionDirectServer));
@@ -1339,7 +1457,6 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
 
   Widget whitelist() {
     bool enabled = !locked;
-    // Simple temp wrapper for PR check
     tmpWrapper() {
       RxBool hasWhitelist = whitelistNotEmpty().obs;
       update() async {
@@ -1387,46 +1504,6 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
     }
 
     return tmpWrapper();
-  }
-
-  Widget hide_cm(bool enabled) {
-    return ChangeNotifierProvider.value(
-        value: gFFI.serverModel,
-        child: Consumer<ServerModel>(builder: (context, model, child) {
-          final enableHideCm = model.approveMode == 'password' &&
-              model.verificationMethod == kUsePermanentPassword;
-          onHideCmChanged(bool? b) {
-            if (b != null) {
-              bind.mainSetOption(
-                  key: 'allow-hide-cm', value: bool2option('allow-hide-cm', b));
-            }
-          }
-
-          return Tooltip(
-              message: enableHideCm ? "" : translate('hide_cm_tip'),
-              child: GestureDetector(
-                onTap:
-                    enableHideCm ? () => onHideCmChanged(!model.hideCm) : null,
-                child: Row(
-                  children: [
-                    Checkbox(
-                            value: model.hideCm,
-                            onChanged: enabled && enableHideCm
-                                ? onHideCmChanged
-                                : null)
-                        .marginOnly(right: 5),
-                    Expanded(
-                      child: Text(
-                        translate('Hide connection management window'),
-                        style: TextStyle(
-                            color: disabledTextColor(
-                                context, enabled && enableHideCm)),
-                      ),
-                    ),
-                  ],
-                ),
-              ));
-        }));
   }
 
   List<Widget> autoDisconnect(BuildContext context) {
@@ -1567,7 +1644,6 @@ class _NetworkState extends State<_Network> with AutomaticKeepAliveClientMixin {
       return Offstage();
     }
 
-    // Helper function to create network setting ListTiles
     Widget listTile({
       required IconData icon,
       required String title,
@@ -1723,462 +1799,6 @@ class _NetworkState extends State<_Network> with AutomaticKeepAliveClientMixin {
   }
 }
 
-class _Display extends StatefulWidget {
-  const _Display({Key? key}) : super(key: key);
-
-  @override
-  State<_Display> createState() => _DisplayState();
-}
-
-class _DisplayState extends State<_Display> {
-  @override
-  Widget build(BuildContext context) {
-    final scrollController = ScrollController();
-    return ListView(controller: scrollController, children: [
-      viewStyle(context),
-      scrollStyle(context),
-      imageQuality(context),
-      codec(context),
-      if (isDesktop) trackpadSpeed(context),
-      if (!isWeb) privacyModeImpl(context),
-      other(context),
-    ]).marginOnly(bottom: _kListViewBottomMargin);
-  }
-
-  Widget viewStyle(BuildContext context) {
-    final isOptFixed = isOptionFixed(kOptionViewStyle);
-    onChanged(String value) async {
-      await bind.mainSetUserDefaultOption(key: kOptionViewStyle, value: value);
-      setState(() {});
-    }
-
-    final groupValue = bind.mainGetUserDefaultOption(key: kOptionViewStyle);
-    return _Card(title: 'Default View Style', children: [
-      _Radio(context,
-          value: kRemoteViewStyleOriginal,
-          groupValue: groupValue,
-          label: 'Scale original',
-          onChanged: isOptFixed ? null : onChanged),
-      _Radio(context,
-          value: kRemoteViewStyleAdaptive,
-          groupValue: groupValue,
-          label: 'Scale adaptive',
-          onChanged: isOptFixed ? null : onChanged),
-    ]);
-  }
-
-  Widget scrollStyle(BuildContext context) {
-    final isOptFixed = isOptionFixed(kOptionScrollStyle);
-    onChanged(String value) async {
-      await bind.mainSetUserDefaultOption(
-          key: kOptionScrollStyle, value: value);
-      setState(() {});
-    }
-
-    final groupValue = bind.mainGetUserDefaultOption(key: kOptionScrollStyle);
-
-    onEdgeScrollEdgeThicknessChanged(double value) async {
-      await bind.mainSetUserDefaultOption(
-          key: kOptionEdgeScrollEdgeThickness, value: value.round().toString());
-      setState(() {});
-    }
-
-    return _Card(title: 'Default Scroll Style', children: [
-      _Radio(context,
-          value: kRemoteScrollStyleAuto,
-          groupValue: groupValue,
-          label: 'ScrollAuto',
-          onChanged: isOptFixed ? null : onChanged),
-      _Radio(context,
-          value: kRemoteScrollStyleBar,
-          groupValue: groupValue,
-          label: 'Scrollbar',
-          onChanged: isOptFixed ? null : onChanged),
-      if (!isWeb) ...[
-        _Radio(context,
-            value: kRemoteScrollStyleEdge,
-            groupValue: groupValue,
-            label: 'ScrollEdge',
-            onChanged: isOptFixed ? null : onChanged),
-        Offstage(
-            offstage: groupValue != kRemoteScrollStyleEdge,
-            child: EdgeThicknessControl(
-              value: double.tryParse(bind.mainGetUserDefaultOption(
-                      key: kOptionEdgeScrollEdgeThickness)) ??
-                  100.0,
-              onChanged: isOptionFixed(kOptionEdgeScrollEdgeThickness)
-                  ? null
-                  : onEdgeScrollEdgeThicknessChanged,
-            )),
-      ],
-    ]);
-  }
-
-  Widget imageQuality(BuildContext context) {
-    onChanged(String value) async {
-      await bind.mainSetUserDefaultOption(
-          key: kOptionImageQuality, value: value);
-      setState(() {});
-    }
-
-    final isOptFixed = isOptionFixed(kOptionImageQuality);
-    final groupValue = bind.mainGetUserDefaultOption(key: kOptionImageQuality);
-    return _Card(title: 'Default Image Quality', children: [
-      _Radio(context,
-          value: kRemoteImageQualityBest,
-          groupValue: groupValue,
-          label: 'Good image quality',
-          onChanged: isOptFixed ? null : onChanged),
-      _Radio(context,
-          value: kRemoteImageQualityBalanced,
-          groupValue: groupValue,
-          label: 'Balanced',
-          onChanged: isOptFixed ? null : onChanged),
-      _Radio(context,
-          value: kRemoteImageQualityLow,
-          groupValue: groupValue,
-          label: 'Optimize reaction time',
-          onChanged: isOptFixed ? null : onChanged),
-      _Radio(context,
-          value: kRemoteImageQualityCustom,
-          groupValue: groupValue,
-          label: 'Custom',
-          onChanged: isOptFixed ? null : onChanged),
-      Offstage(
-        offstage: groupValue != kRemoteImageQualityCustom,
-        child: customImageQualitySetting(),
-      )
-    ]);
-  }
-
-  Widget trackpadSpeed(BuildContext context) {
-    final initSpeed =
-        (int.tryParse(bind.mainGetUserDefaultOption(key: kKeyTrackpadSpeed)) ??
-            kDefaultTrackpadSpeed);
-    final curSpeed = SimpleWrapper(initSpeed);
-    void onDebouncer(int v) {
-      bind.mainSetUserDefaultOption(
-          key: kKeyTrackpadSpeed, value: v.toString());
-      // It's better to notify all sessions that the default speed is changed.
-      // But it may also be ok to take effect in the next connection.
-    }
-
-    return _Card(title: 'Default trackpad speed', children: [
-      TrackpadSpeedWidget(
-        value: curSpeed,
-        onDebouncer: onDebouncer,
-      ),
-    ]);
-  }
-
-  Widget codec(BuildContext context) {
-    onChanged(String value) async {
-      await bind.mainSetUserDefaultOption(
-          key: kOptionCodecPreference, value: value);
-      setState(() {});
-    }
-
-    final groupValue =
-        bind.mainGetUserDefaultOption(key: kOptionCodecPreference);
-    var hwRadios = [];
-    final isOptFixed = isOptionFixed(kOptionCodecPreference);
-    try {
-      final Map codecsJson = jsonDecode(bind.mainSupportedHwdecodings());
-      final h264 = codecsJson['h264'] ?? false;
-      final h265 = codecsJson['h265'] ?? false;
-      if (h264) {
-        hwRadios.add(_Radio(context,
-            value: 'h264',
-            groupValue: groupValue,
-            label: 'H264',
-            onChanged: isOptFixed ? null : onChanged));
-      }
-      if (h265) {
-        hwRadios.add(_Radio(context,
-            value: 'h265',
-            groupValue: groupValue,
-            label: 'H265',
-            onChanged: isOptFixed ? null : onChanged));
-      }
-    } catch (e) {
-      debugPrint("failed to parse supported hwdecodings, err=$e");
-    }
-    return _Card(title: 'Default Codec', children: [
-      _Radio(context,
-          value: 'auto',
-          groupValue: groupValue,
-          label: 'Auto',
-          onChanged: isOptFixed ? null : onChanged),
-      _Radio(context,
-          value: 'vp8',
-          groupValue: groupValue,
-          label: 'VP8',
-          onChanged: isOptFixed ? null : onChanged),
-      _Radio(context,
-          value: 'vp9',
-          groupValue: groupValue,
-          label: 'VP9',
-          onChanged: isOptFixed ? null : onChanged),
-      _Radio(context,
-          value: 'av1',
-          groupValue: groupValue,
-          label: 'AV1',
-          onChanged: isOptFixed ? null : onChanged),
-      ...hwRadios,
-    ]);
-  }
-
-  Widget privacyModeImpl(BuildContext context) {
-    final supportedPrivacyModeImpls = bind.mainSupportedPrivacyModeImpls();
-    late final List<dynamic> privacyModeImpls;
-    try {
-      privacyModeImpls = jsonDecode(supportedPrivacyModeImpls);
-    } catch (e) {
-      debugPrint('failed to parse supported privacy mode impls, err=$e');
-      return Offstage();
-    }
-    if (privacyModeImpls.length < 2) {
-      return Offstage();
-    }
-
-    final key = 'privacy-mode-impl-key';
-    onChanged(String value) async {
-      await bind.mainSetOption(key: key, value: value);
-      setState(() {});
-    }
-
-    String groupValue = bind.mainGetOptionSync(key: key);
-    if (groupValue.isEmpty) {
-      groupValue = bind.mainDefaultPrivacyModeImpl();
-    }
-    return _Card(
-      title: 'Privacy mode',
-      children: privacyModeImpls.map((impl) {
-        final d = impl as List<dynamic>;
-        return _Radio(context,
-            value: d[0] as String,
-            groupValue: groupValue,
-            label: d[1] as String,
-            onChanged: onChanged);
-      }).toList(),
-    );
-  }
-
-  Widget otherRow(String label, String key) {
-    final value = bind.mainGetUserDefaultOption(key: key) == 'Y';
-    final isOptFixed = isOptionFixed(key);
-    onChanged(bool b) async {
-      await bind.mainSetUserDefaultOption(
-          key: key,
-          value: b
-              ? 'Y'
-              : (key == kOptionEnableFileCopyPaste ? 'N' : defaultOptionNo));
-      setState(() {});
-    }
-
-    return GestureDetector(
-        child: Row(
-          children: [
-            Checkbox(
-                    value: value,
-                    onChanged: isOptFixed ? null : (_) => onChanged(!value))
-                .marginOnly(right: 5),
-            Expanded(
-              child: Text(translate(label)),
-            )
-          ],
-        ).marginOnly(left: _kCheckBoxLeftMargin),
-        onTap: isOptFixed ? null : () => onChanged(!value));
-  }
-
-  Widget other(BuildContext context) {
-    final children =
-        otherDefaultSettings().map((e) => otherRow(e.$1, e.$2)).toList();
-    return _Card(title: 'Other Default Options', children: children);
-  }
-}
-
-// ============================================================================
-// התוספת שלנו ל- See-Desk - מסך האזור האישי (Account) שקורא ל-SharedPreferences
-// ============================================================================
-class _Account extends StatefulWidget {
-  const _Account({Key? key}) : super(key: key);
-
-  @override
-  State<_Account> createState() => _AccountState();
-}
-
-class _AccountState extends State<_Account> {
-  String? maskedLicense;
-  int? maxConnections;
-  String? sessionId;
-  String? fullLicense;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadUserData();
-  }
-
-  // שולף נתונים מהזיכרון כדי לבדוק אם יש רישיון שמור
-  Future<void> _loadUserData() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    setState(() {
-      maskedLicense = prefs.getString('masked_license');
-      maxConnections = prefs.getInt('max_connections');
-      sessionId = prefs.getString('session_id');
-      fullLicense = prefs.getString('saved_license');
-    });
-  }
-
-  // התנתקות וניתוק הרישיון
-  Future<void> _logout() async {
-    if (fullLicense != null && sessionId != null) {
-      final String serverUrl = "http://187.124.13.191/logout";
-      try {
-        // אין צורך לחכות לתשובה, פשוט שולחים לשרת להתנתק
-        // ignore: unused_local_variable
-        final response = await http.post( // הוספתי ייבוא של http אם צריך
-          Uri.parse(serverUrl),
-          headers: {"Content-Type": "application/json"},
-          body: jsonEncode({
-            "license_key": fullLicense,
-            "session_id": sessionId
-          }),
-        );
-      } catch (e) {
-        print("Network error on logout: $e");
-      }
-    }
-
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.remove('saved_license');
-    await prefs.remove('masked_license');
-    await prefs.remove('session_id');
-    await prefs.remove('max_connections');
-
-    setState(() {
-      maskedLicense = null;
-      maxConnections = null;
-      sessionId = null;
-      fullLicense = null;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final scrollController = ScrollController();
-    return ListView(
-      controller: scrollController,
-      children: [
-        _Card(
-            title: 'Account',
-            children: [
-              maskedLicense != null
-                  ? _buildLoggedInView()
-                  : _buildLoggedOutView()
-            ]),
-      ],
-    ).marginOnly(bottom: _kListViewBottomMargin);
-  }
-
-  // כשיש רישיון (מחובר)
-  Widget _buildLoggedInView() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.blue, width: 1)),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("רישיון פעיל: $maskedLicense",
-                  style: const TextStyle(fontSize: 16)),
-              const SizedBox(height: 8),
-              Text("חיבורים במקביל: 1 / $maxConnections",
-                  style: const TextStyle(fontSize: 16)),
-            ],
-          ),
-        ).marginOnly(left: 15, right: 15, bottom: 15),
-        _Button(
-            'התנתק / החלף רישיון',
-            _logout,
-            style: ButtonStyle(
-              backgroundColor: MaterialStateProperty.all<Color>(Colors.red),
-              foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
-            ))
-      ],
-    );
-  }
-
-  // כשאין רישיון (מנותק)
-  Widget _buildLoggedOutView() {
-    return _Button('Login (התחבר)', () async {
-      // פותח את חלון הלוגין המותאם שלנו שכתבנו בקובץ see_desk_login_dialog.dart
-      await showSeeDeskLoginDialog(context);
-      // אחרי שהחלון נסגר, בודקים אם יש נתונים חדשים
-      _loadUserData();
-    });
-  }
-}
-// ============================================================================
-
-
-class _Checkbox extends StatefulWidget {
-  final String label;
-  final bool Function() getValue;
-  final Future<void> Function(bool) setValue;
-
-  const _Checkbox(
-      {Key? key,
-      required this.label,
-      required this.getValue,
-      required this.setValue})
-      : super(key: key);
-
-  @override
-  State<_Checkbox> createState() => _CheckboxState();
-}
-
-class _CheckboxState extends State<_Checkbox> {
-  var value = false;
-
-  @override
-  initState() {
-    super.initState();
-    value = widget.getValue();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    onChanged(bool b) async {
-      await widget.setValue(b);
-      setState(() {
-        value = widget.getValue();
-      });
-    }
-
-    return GestureDetector(
-      child: Row(
-        children: [
-          Checkbox(
-            value: value,
-            onChanged: (_) => onChanged(!value),
-          ).marginOnly(right: 5),
-          Expanded(
-            child: Text(translate(widget.label)),
-          )
-        ],
-      ).marginOnly(left: _kCheckBoxLeftMargin),
-      onTap: () => onChanged(!value),
-    );
-  }
-}
-
 class _Plugin extends StatefulWidget {
   const _Plugin({Key? key}) : super(key: key);
 
@@ -2209,18 +1829,6 @@ class _PluginState extends State<_Plugin> {
         builder: (context, model, child) => DesktopSettingsCard(plugin: model),
       ),
     );
-  }
-
-  Widget accountAction() {
-    return Obx(() => _Button(
-        gFFI.userModel.userName.value.isEmpty
-            ? 'Login'
-            : '${translate('Logout')} (${gFFI.userModel.accountLabelWithHandle})',
-        () => {
-              gFFI.userModel.userName.value.isEmpty
-                  ? loginDialog()
-                  : logOutConfirmDialog()
-            }));
   }
 }
 
@@ -2306,8 +1914,6 @@ class __PrinterState extends State<_Printer> {
     }
 
     final installed = bind.mainIsInstalled();
-    // `is-printer-installed` may fail, but it's rare case.
-    // Add additional error message here if it's really needed.
     final isPrinterInstalled =
         bind.mainGetCommonSync(key: 'is-printer-installed') == 'true';
 
@@ -2469,10 +2075,6 @@ class _AboutState extends State<_About> {
   }
 }
 
-//#endregion
-
-//#region components
-
 // ignore: non_constant_identifier_names
 Widget _Card(
     {required String title,
@@ -2614,165 +2216,6 @@ Widget _Radio<T>(BuildContext context,
   );
 }
 
-class WaylandCard extends StatefulWidget {
-  const WaylandCard({Key? key}) : super(key: key);
-
-  @override
-  State<WaylandCard> createState() => _WaylandCardState();
-}
-
-class _WaylandCardState extends State<WaylandCard> {
-  final restoreTokenKey = 'wayland-restore-token';
-  static const _kClearShortcutsInhibitorEventKey =
-      'clear-gnome-shortcuts-inhibitor-permission-res';
-  final _clearShortcutsInhibitorFailedMsg = ''.obs;
-  // Don't show the shortcuts permission reset button for now.
-  // Users can change it manually:
-  //   "Settings" -> "Apps" -> "RustDesk" -> "Permissions" -> "Inhibit Shortcuts".
-  // For resetting(clearing) the permission from the portal permission store, you can
-  // use (replace <desktop-id> with the RustDesk desktop file ID):
-  //   busctl --user call org.freedesktop.impl.portal.PermissionStore \
-  //   /org/freedesktop/impl/portal/PermissionStore org.freedesktop.impl.portal.PermissionStore \
-  //   DeletePermission sss "gnome" "shortcuts-inhibitor" "<desktop-id>"
-  // On a native install this is typically "rustdesk.desktop"; on Flatpak it is usually
-  // the exported desktop ID derived from the Flatpak app-id (e.g. "com.rustdesk.RustDesk.desktop").
-  //
-  // We may add it back in the future if needed.
-  final showResetInhibitorPermission = false;
-
-  @override
-  void initState() {
-    super.initState();
-    if (showResetInhibitorPermission) {
-      platformFFI.registerEventHandler(
-          _kClearShortcutsInhibitorEventKey, _kClearShortcutsInhibitorEventKey,
-          (evt) async {
-        if (!mounted) return;
-        if (evt['success'] == true) {
-          setState(() {});
-        } else {
-          _clearShortcutsInhibitorFailedMsg.value =
-              evt['msg'] as String? ?? 'Unknown error';
-        }
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    if (showResetInhibitorPermission) {
-      platformFFI.unregisterEventHandler(
-          _kClearShortcutsInhibitorEventKey, _kClearShortcutsInhibitorEventKey);
-    }
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return futureBuilder(
-      future: bind.mainHandleWaylandScreencastRestoreToken(
-          key: restoreTokenKey, value: "get"),
-      hasData: (restoreToken) {
-        final hasShortcutsPermission = showResetInhibitorPermission &&
-            bind.mainGetCommonSync(
-                    key: "has-gnome-shortcuts-inhibitor-permission") ==
-                "true";
-
-        final children = [
-          if (restoreToken.isNotEmpty)
-            _buildClearScreenSelection(context, restoreToken),
-          if (hasShortcutsPermission)
-            _buildClearShortcutsInhibitorPermission(context),
-        ];
-        return Offstage(
-          offstage: children.isEmpty,
-          child: _Card(title: 'Wayland', children: children),
-        );
-      },
-    );
-  }
-
-  Widget _buildClearScreenSelection(BuildContext context, String restoreToken) {
-    onConfirm() async {
-      final msg = await bind.mainHandleWaylandScreencastRestoreToken(
-          key: restoreTokenKey, value: "clear");
-      gFFI.dialogManager.dismissAll();
-      if (msg.isNotEmpty) {
-        msgBox(gFFI.sessionId, 'custom-nocancel', 'Error', msg, '',
-            gFFI.dialogManager);
-      } else {
-        setState(() {});
-      }
-    }
-
-    showConfirmMsgBox() => msgBoxCommon(
-            gFFI.dialogManager,
-            'Confirmation',
-            Text(
-              translate('confirm_clear_Wayland_screen_selection_tip'),
-            ),
-            [
-              dialogButton('OK', onPressed: onConfirm),
-              dialogButton('Cancel',
-                  onPressed: () => gFFI.dialogManager.dismissAll())
-            ]);
-
-    return _Button(
-      'Clear Wayland screen selection',
-      showConfirmMsgBox,
-      tip: 'clear_Wayland_screen_selection_tip',
-      style: ButtonStyle(
-        backgroundColor: MaterialStateProperty.all<Color>(
-            Theme.of(context).colorScheme.error.withOpacity(0.75)),
-      ),
-    );
-  }
-
-  Widget _buildClearShortcutsInhibitorPermission(BuildContext context) {
-    onConfirm() {
-      _clearShortcutsInhibitorFailedMsg.value = '';
-      bind.mainSetCommon(
-          key: "clear-gnome-shortcuts-inhibitor-permission", value: "");
-      gFFI.dialogManager.dismissAll();
-    }
-
-    showConfirmMsgBox() => msgBoxCommon(
-            gFFI.dialogManager,
-            'Confirmation',
-            Text(
-              translate('confirm-clear-shortcuts-inhibitor-permission-tip'),
-            ),
-            [
-              dialogButton('OK', onPressed: onConfirm),
-              dialogButton('Cancel',
-                  onPressed: () => gFFI.dialogManager.dismissAll())
-            ]);
-
-    return Column(children: [
-      Obx(
-        () => _clearShortcutsInhibitorFailedMsg.value.isEmpty
-            ? Offstage()
-            : Align(
-                alignment: Alignment.topLeft,
-                child: Text(_clearShortcutsInhibitorFailedMsg.value,
-                        style: DefaultTextStyle.of(context)
-                            .style
-                            .copyWith(color: Colors.red))
-                    .marginOnly(bottom: 10.0)),
-      ),
-      _Button(
-        'Reset keyboard shortcuts permission',
-        showConfirmMsgBox,
-        tip: 'clear-shortcuts-inhibitor-permission-tip',
-        style: ButtonStyle(
-          backgroundColor: MaterialStateProperty.all<Color>(
-              Theme.of(context).colorScheme.error.withOpacity(0.75)),
-        ),
-      ),
-    ]);
-  }
-}
-
 // ignore: non_constant_identifier_names
 Widget _Button(String label, Function() onPressed,
     {bool enabled = true, String? tip, ButtonStyle? style}) {
@@ -2869,51 +2312,6 @@ Widget _lock(
       ));
 }
 
-_LabeledTextField(
-    BuildContext context,
-    String label,
-    TextEditingController controller,
-    String errorText,
-    bool enabled,
-    bool secure) {
-  return Table(
-    columnWidths: const {
-      0: FixedColumnWidth(150),
-      1: FlexColumnWidth(),
-    },
-    defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-    children: [
-      TableRow(
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(right: 10),
-            child: Text(
-              '${translate(label)}:',
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                fontSize: 16,
-                color: disabledTextColor(context, enabled),
-              ),
-            ),
-          ),
-          TextField(
-            controller: controller,
-            enabled: enabled,
-            obscureText: secure,
-            autocorrect: false,
-            decoration: InputDecoration(
-              errorText: errorText.isNotEmpty ? errorText : null,
-            ),
-            style: TextStyle(
-              color: disabledTextColor(context, enabled),
-            ),
-          ).workaroundFreezeLinuxMint(),
-        ],
-      ),
-    ],
-  ).marginOnly(bottom: 8);
-}
-
 class _CountDownButton extends StatefulWidget {
   _CountDownButton({
     Key? key,
@@ -2977,10 +2375,6 @@ class _CountDownButtonState extends State<_CountDownButton> {
   }
 }
 
-//#endregion
-
-//#region dialogs
-
 void changeSocks5Proxy() async {
   var socks = await bind.mainGetSocks();
 
@@ -2998,8 +2392,6 @@ void changeSocks5Proxy() async {
   var pwdController = TextEditingController(text: password);
   RxBool obscure = true.obs;
 
-  // proxy settings
-  // The following option is a not real key, it is just used for custom client advanced settings.
   const String optionProxyUrl = "proxy-url";
   final isOptFixed = isOptionFixed(optionProxyUrl);
 
@@ -3028,7 +2420,6 @@ void changeSocks5Proxy() async {
         proxyMsg = translate(await bind.mainTestIfValidServer(
             server: domainPort, testWithProxy: false));
         if (proxyMsg.isEmpty) {
-          // ignore
         } else {
           cancel();
           return;
@@ -3136,7 +2527,6 @@ void changeSocks5Proxy() async {
                 ),
               ],
             ),
-            // NOT use Offstage to wrap LinearProgressIndicator
             if (isInProgress)
               const LinearProgressIndicator().marginOnly(top: 8),
           ],
@@ -3151,5 +2541,3 @@ void changeSocks5Proxy() async {
     );
   });
 }
-
-//#endregion

@@ -1,17 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-
-const String _verifyUrl = 'http://187.124.13.191/verify';
-
-String _maskLicense(String license) {
-  if (license.length <= 4) {
-    return license;
-  }
-  return '****${license.substring(license.length - 4)}';
-}
+import 'package:flutter_hbb/utils/license_manager.dart';
 
 Future<void> showSeeDeskLoginDialog(BuildContext context) async {
   final formKey = GlobalKey<FormState>();
@@ -37,53 +30,71 @@ Future<void> showSeeDeskLoginDialog(BuildContext context) async {
             });
 
             try {
-              final response = await http.post(
-                Uri.parse(_verifyUrl),
-                headers: const {'Content-Type': 'application/json'},
-                body: jsonEncode({'license_key': license}),
-              );
+              final response = await http
+                  .post(
+                    Uri.parse('$kLicenseServerBaseUrl/verify_license'),
+                    headers: const {'Content-Type': 'application/json'},
+                    body: jsonEncode({'license_key': license}),
+                  )
+                  .timeout(const Duration(seconds: 10));
 
-              if (response.statusCode < 200 || response.statusCode >= 300) {
+              Map<String, dynamic> payload = {};
+              try {
+                payload = jsonDecode(response.body) as Map<String, dynamic>;
+              } catch (_) {
+                payload = {};
+              }
+
+              final message = payload['message']?.toString() ??
+                  'License verification failed (${response.statusCode}).';
+
+              final approved = response.statusCode == 200 &&
+                  payload['status']?.toString() == 'success';
+              if (!approved) {
                 setState(() {
-                  errorText = 'License verification failed (${response.statusCode}).';
+                  errorText = message;
                   loading = false;
                 });
+                if (dialogContext.mounted) {
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
+                    SnackBar(content: Text(message)),
+                  );
+                }
                 return;
               }
 
-              final Map<String, dynamic> payload =
-                  jsonDecode(response.body) as Map<String, dynamic>;
-
-              final bool approved = payload['success'] == true ||
-                  payload['valid'] == true ||
-                  payload['status'] == 'ok';
-              final String? sessionId = payload['session_id']?.toString();
-              final int maxConnections =
-                  int.tryParse(payload['max_connections']?.toString() ?? '1') ?? 1;
-
-              if (!approved || sessionId == null || sessionId.isEmpty) {
-                setState(() {
-                  errorText = payload['message']?.toString() ??
-                      'License was rejected by server.';
-                  loading = false;
-                });
-                return;
-              }
-
+              final maxConnections =
+                  int.tryParse(payload['max_connections']?.toString() ?? '');
               final prefs = await SharedPreferences.getInstance();
               await prefs.setString('saved_license', license);
-              await prefs.setString('masked_license', _maskLicense(license));
-              await prefs.setString('session_id', sessionId);
-              await prefs.setInt('max_connections', maxConnections);
+              await prefs.setString('masked_license', maskLicense(license));
+              if (maxConnections != null) {
+                await prefs.setInt('max_connections', maxConnections);
+              }
 
               if (dialogContext.mounted) {
                 Navigator.of(dialogContext).pop();
               }
-            } catch (_) {
+            } on TimeoutException catch (_) {
               setState(() {
-                errorText = 'Network error while verifying license.';
+                errorText = kLicenseCommunicationErrorMessage;
                 loading = false;
               });
+              if (dialogContext.mounted) {
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  const SnackBar(content: Text(kLicenseCommunicationErrorMessage)),
+                );
+              }
+            } catch (_) {
+              setState(() {
+                errorText = kLicenseCommunicationErrorMessage;
+                loading = false;
+              });
+              if (dialogContext.mounted) {
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  const SnackBar(content: Text(kLicenseCommunicationErrorMessage)),
+                );
+              }
             }
           }
 

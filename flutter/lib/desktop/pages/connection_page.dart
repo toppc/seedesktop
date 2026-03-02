@@ -4,17 +4,14 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
-// --- התוספות שלנו לתקשורת מול השרת ---
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-// ------------------------------------
-
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common/widgets/connection_page_title.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/widgets/popup_menu.dart';
 import 'package:flutter_hbb/models/state_model.dart';
+import 'package:flutter_hbb/utils/license_manager.dart';
 import 'package:get/get.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:flutter_hbb/models/peer_model.dart';
@@ -629,32 +626,17 @@ class _ConnectionPageState extends State<ConnectionPage>
 // --- מערכת רישיונות See-Desktop API ---
 // ==========================================
 
-Future<bool> checkLicenseWithServer(String key) async {
-  try {
-    final response = await http.post(
-      Uri.parse('http://187.124.13.191/verify'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'license_key': key}),
-    ).timeout(const Duration(seconds: 5));
-    
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return data['valid'] == true;
-    }
-  } catch (e) {
-    debugPrint('License check error: $e');
-  }
-  return false;
-}
-
 Future<bool> enforceSeeDeskLicense(BuildContext context) async {
-  SharedPreferences prefs = await SharedPreferences.getInstance();
-  String? savedKey = prefs.getString('see_desk_license');
+  final prefs = await SharedPreferences.getInstance();
+  final savedKey = prefs.getString('saved_license');
 
   // 1. בדיקה שקטה: האם יש מפתח שמור ותקין?
   if (savedKey != null && savedKey.isNotEmpty) {
-    bool isValid = await checkLicenseWithServer(savedKey);
-    if (isValid) return true; // הכל תקין, תן לו להתחבר!
+    final verify = await verifyLicenseWithServer(savedKey);
+    if (verify.approved) {
+      await saveLicenseToPrefs(savedKey, maxConnections: verify.maxConnections);
+      return true; // הכל תקין, תן לו להתחבר!
+    }
   }
 
   // 2. אם הגענו לפה - אין רישיון או שהוא פג תוקף. נקפיץ חלון.
@@ -694,17 +676,20 @@ Future<bool> enforceSeeDeskLicense(BuildContext context) async {
             ElevatedButton(
               onPressed: () async {
                 if (inputKey.isEmpty) return;
-                bool isValid = await checkLicenseWithServer(inputKey);
-                if (isValid) {
-                  await prefs.setString('see_desk_license', inputKey); // שומר את המפתח
+                final verify = await verifyLicenseWithServer(inputKey);
+                if (verify.approved) {
+                  await saveLicenseToPrefs(
+                    inputKey,
+                    maxConnections: verify.maxConnections,
+                  );
                   passed = true;
                   Navigator.pop(context); // סוגר את החלון וממשיך
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Invalid or expired license!'),
+                    SnackBar(
+                      content: Text(verify.message),
                       backgroundColor: Colors.red,
-                    )
+                    ),
                   );
                 }
               },

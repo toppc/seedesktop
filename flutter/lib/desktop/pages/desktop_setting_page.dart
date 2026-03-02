@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http; // <-- התיקון שלנו: ייבוא ספריית רשת
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart'; // <-- תוספת שלנו: זיכרון מקומי
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/common/widgets/audio_input.dart';
@@ -21,6 +21,7 @@ import 'package:flutter_hbb/models/server_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
 import 'package:flutter_hbb/plugin/manager.dart';
 import 'package:flutter_hbb/plugin/widgets/desktop_settings.dart';
+import 'package:flutter_hbb/utils/license_manager.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -836,29 +837,42 @@ class _AccountState extends State<_Account> {
 
   // התנתקות וניתוק הרישיון
   Future<void> _logout() async {
-    if (fullLicense != null && sessionId != null) {
-      final String serverUrl = "http://187.124.13.191/logout";
+    if (fullLicense != null && fullLicense!.trim().isNotEmpty) {
       try {
-        // שולחים לשרת להתנתק
-        // ignore: unused_local_variable
-        final response = await http.post(
-          Uri.parse(serverUrl),
-          headers: {"Content-Type": "application/json"},
-          body: jsonEncode({
-            "license_key": fullLicense,
-            "session_id": sessionId
-          }),
-        );
-      } catch (e) {
-        print("Network error on logout: $e");
+        final response = await http
+            .post(
+              Uri.parse('http://187.124.13.191/release_connection'),
+              headers: const {'Content-Type': 'application/json'},
+              body: jsonEncode({'license_key': fullLicense}),
+            )
+            .timeout(const Duration(seconds: 8));
+
+        if (response.statusCode >= 400 && mounted) {
+          String message = 'Failed to release connection (${response.statusCode}).';
+          try {
+            final payload = jsonDecode(response.body) as Map<String, dynamic>;
+            message = payload['message']?.toString() ?? message;
+          } catch (_) {}
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message)),
+          );
+        }
+      } on TimeoutException {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text(kLicenseCommunicationErrorMessage)),
+          );
+        }
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text(kLicenseCommunicationErrorMessage)),
+          );
+        }
       }
     }
 
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.remove('saved_license');
-    await prefs.remove('masked_license');
-    await prefs.remove('session_id');
-    await prefs.remove('max_connections');
+    await clearLicensePrefs();
 
     setState(() {
       maskedLicense = null;

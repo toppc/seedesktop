@@ -31,6 +31,7 @@ class DesktopTabPage extends StatefulWidget {
             key: const ValueKey(kTabLabelSettingPage),
             initialTabkey: initialPage,
           )));
+      tabController.jumpToByKey(kTabLabelSettingPage);
     } catch (e) {
       debugPrintStack(label: '$e');
     }
@@ -84,12 +85,19 @@ class _DesktopTabPageState extends State<DesktopTabPage> {
         }
       };
     }
+    _setDefaultHomeTab();
+  }
+
+  void _setDefaultHomeTab() {
     tabController.jumpToByKey(kTabLabelHomePage);
   }
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _setDefaultHomeTab();
+    });
     // HardwareKeyboard.instance.addHandler(_handleKeyEvent);
   }
 

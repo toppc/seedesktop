@@ -149,12 +149,33 @@ void setTemporaryPasswordLengthDialog(
 
 void showServerSettings(OverlayDialogManager dialogManager,
     void Function(VoidCallback) setState) async {
+  const defaultIdServer = '187.124.13.191';
+  const defaultRelayServer = '';
+  const defaultApiServer = '';
+  const defaultKey =
+      'F0QrJCreHax0mBClNCQ6BUC3G+Nq8IxF7WoGr1imGJc=root@srv1435562';
   Map<String, dynamic> options = {};
   try {
     options = jsonDecode(await bind.mainGetOptions());
   } catch (e) {
     print("Invalid server config: $e");
   }
+
+  // Prefer backend options (which are locked in Rust for this build) so the
+  // dialog always opens with your server defaults instead of empty fields.
+  final idServer = await bind.mainGetOption(key: 'custom-rendezvous-server');
+  final relayServer = await bind.mainGetOption(key: 'relay-server');
+  final apiServer = await bind.mainGetOption(key: 'api-server');
+  final key = await bind.mainGetOption(key: 'key');
+
+  options['custom-rendezvous-server'] =
+      idServer.isNotEmpty ? idServer : (options['custom-rendezvous-server'] ?? defaultIdServer);
+  options['relay-server'] =
+      relayServer.isNotEmpty ? relayServer : (options['relay-server'] ?? defaultRelayServer);
+  options['api-server'] =
+      apiServer.isNotEmpty ? apiServer : (options['api-server'] ?? defaultApiServer);
+  options['key'] = key.isNotEmpty ? key : (options['key'] ?? defaultKey);
+
   showServerSettingsWithValue(
       ServerConfig.fromOptions(options), dialogManager, setState);
 }

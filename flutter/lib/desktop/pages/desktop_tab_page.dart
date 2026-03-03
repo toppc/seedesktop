@@ -3,6 +3,7 @@ import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_home_page.dart';
 import 'package:flutter_hbb/desktop/pages/saved_connections_page.dart';
+import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
@@ -18,10 +19,21 @@ class DesktopTabPage extends StatefulWidget {
   @override
   State<DesktopTabPage> createState() => _DesktopTabPageState();
 
-  static void onAddSetting(
-      {dynamic initialPage}) {
-    // Settings tab intentionally disabled for this build.
-    return;
+  static void onAddSetting({SettingsTabKey initialPage = SettingsTabKey.general}) {
+    try {
+      DesktopTabController tabController = Get.find<DesktopTabController>();
+      tabController.add(TabInfo(
+          key: kTabLabelSettingPage,
+          label: kTabLabelSettingPage,
+          selectedIcon: Icons.build_sharp,
+          unselectedIcon: Icons.build_outlined,
+          page: DesktopSettingPage(
+            key: const ValueKey(kTabLabelSettingPage),
+            initialTabkey: initialPage,
+          )));
+    } catch (e) {
+      debugPrintStack(label: '$e');
+    }
   }
 }
 
@@ -61,6 +73,7 @@ class _DesktopTabPageState extends State<DesktopTabPage> {
         }
       };
     }
+    tabController.jumpToByKey(kTabLabelHomePage);
   }
 
   @override
@@ -95,7 +108,7 @@ class _DesktopTabPageState extends State<DesktopTabPage> {
             body: DesktopTab(
               controller: tabController,
               tail: Offstage(
-                offstage: true,
+                offstage: bind.isIncomingOnly() || bind.isDisableSettings(),
                 child: ActionIcon(
                   message: 'Settings',
                   icon: IconFont.menu,

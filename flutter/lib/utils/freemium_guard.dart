@@ -9,7 +9,7 @@ const int kFreemiumTrialDays = 14;
 const int kFreemiumDelayEarlySeconds = 30;
 const int kFreemiumDelayLateSeconds = 60;
 const int kFreeSessionLimitSeconds = 1800;
-const String kBuyNowUrl = 'https://seedesktop.com/pricing';
+const String kBuyNowUrl = 'https://seedesktop.com';
 
 Future<bool> hasValidLicenseLocal() async {
   final prefs = await SharedPreferences.getInstance();
@@ -162,7 +162,7 @@ class _FreemiumNagDialogState extends State<_FreemiumNagDialog> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Get faster access, priority performance, and unlimited usage with See-Desktop Pro.',
+              'Upgrade to the yearly See-Desktop Pro subscription for uninterrupted remote access.',
               style: TextStyle(fontSize: 15, color: Colors.black87),
             ),
             const SizedBox(height: 14),
@@ -172,16 +172,40 @@ class _FreemiumNagDialogState extends State<_FreemiumNagDialog> {
                 color: const Color(0xFFF6F8FF),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Column(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Pro starts at \$6/month',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-                  SizedBox(height: 4),
-                  Text('• Unlimited session length'),
-                  Text('• Better long-session reliability'),
-                  Text('• Priority features and support'),
+                  const Text(
+                    r'$120 / Year',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 24,
+                      color: Color(0xFF0A6BFF),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Includes one annual Pro license with full managed-device and session benefits.',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Feature List',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 14,
+                    runSpacing: 8,
+                    children: const [
+                      _FeatureItem('1 Concurrent Connection'),
+                      _FeatureItem('1 Master License Key'),
+                      _FeatureItem('Unlimited Managed Devices'),
+                      _FeatureItem('Unlimited Interactive Sessions'),
+                      _FeatureItem('End-to-End Encryption'),
+                      _FeatureItem('Premium Support'),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -220,6 +244,27 @@ class _FreemiumNagDialogState extends State<_FreemiumNagDialog> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _FeatureItem extends StatelessWidget {
+  final String text;
+
+  const _FeatureItem(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.check, size: 16, color: Color(0xFF0A6BFF)),
+        const SizedBox(width: 6),
+        Text(
+          text,
+          style: const TextStyle(fontSize: 13),
+        ),
+      ],
     );
   }
 }

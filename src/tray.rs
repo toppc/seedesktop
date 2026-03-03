@@ -37,7 +37,7 @@ fn make_tray() -> hbb_common::ResultType<()> {
     }
     #[cfg(not(target_os = "macos"))]
     {
-        icon = include_bytes!("../res/tray-icon.ico");
+        icon = include_bytes!("../res/icon.ico");
     }
 
     let (icon_rgba, icon_width, icon_height) = {
@@ -250,14 +250,31 @@ fn load_icon_from_asset() -> Option<image::DynamicImage> {
         return None;
     };
     #[cfg(target_os = "macos")]
-    let path = path.join("../Frameworks/App.framework/Resources/flutter_assets/assets/see-desktop-tray.png");
+    let candidates = [
+        path.join("../Frameworks/App.framework/Resources/flutter_assets/assets/see-desktop-tray.png"),
+        path.join("../Frameworks/App.framework/Resources/flutter_assets/assets/see-desktop-tray.ico"),
+        path.join("../Frameworks/App.framework/Resources/flutter_assets/assets/icon.png"),
+        path.join("../Frameworks/App.framework/Resources/flutter_assets/assets/icon.ico"),
+    ];
     #[cfg(windows)]
-    let path = path.join(r"data\flutter_assets\assets\see-desktop-tray.png");
+    let candidates = [
+        path.join(r"data\flutter_assets\assets\see-desktop-tray.png"),
+        path.join(r"data\flutter_assets\assets\see-desktop-tray.ico"),
+        path.join(r"data\flutter_assets\assets\icon.png"),
+        path.join(r"data\flutter_assets\assets\icon.ico"),
+    ];
     #[cfg(target_os = "linux")]
-    let path = path.join(r"data/flutter_assets/assets/see-desktop-tray.png");
-    if path.exists() {
-        if let Ok(image) = image::open(path) {
-            return Some(image);
+    let candidates = [
+        path.join(r"data/flutter_assets/assets/see-desktop-tray.png"),
+        path.join(r"data/flutter_assets/assets/see-desktop-tray.ico"),
+        path.join(r"data/flutter_assets/assets/icon.png"),
+        path.join(r"data/flutter_assets/assets/icon.ico"),
+    ];
+    for candidate in candidates {
+        if candidate.exists() {
+            if let Ok(image) = image::open(candidate) {
+                return Some(image);
+            }
         }
     }
     None

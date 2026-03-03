@@ -9,7 +9,6 @@ import 'package:flutter_hbb/common/widgets/connection_page_title.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/widgets/popup_menu.dart';
 import 'package:flutter_hbb/models/state_model.dart';
-import 'package:flutter_hbb/utils/license_manager.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
@@ -316,12 +315,6 @@ class _ConnectionPageState extends State<ConnectionPage>
       {bool isFileTransfer = false,
       bool isViewCamera = false,
       bool isTerminal = false}) async {
-        
-    // --- 🔒 חסימת הרישיון שלנו ---
-    bool hasLicense = await enforceSeeDeskLicense(context);
-    if (!hasLicense) return; // אם אין רישיון תקין, המשתמש לחץ ביטול או טעה.
-    // ------------------------------
-
     var id = _idController.id;
     connect(context, id,
         isFileTransfer: isFileTransfer,
@@ -605,90 +598,3 @@ class _ConnectionPageState extends State<ConnectionPage>
   }
 }
 
-// ==========================================
-// --- מערכת רישיונות See-Desktop API ---
-// ==========================================
-
-Future<bool> enforceSeeDeskLicense(BuildContext context) async {
-  final prefs = await SharedPreferences.getInstance();
-  final savedKey = prefs.getString('saved_license');
-
-  // 1. בדיקה שקטה: האם יש מפתח שמור ותקין?
-  if (savedKey != null && savedKey.isNotEmpty) {
-    final verify = await verifyLicenseWithServer(savedKey);
-    if (verify.approved) {
-      await saveLicenseToPrefs(
-        savedKey,
-        allowedConnections: verify.allowedConnections,
-        activeConnections: verify.activeConnections,
-      );
-      return true; // הכל תקין, תן לו להתחבר!
-    }
-  }
-
-  // 2. אם הגענו לפה - אין רישיון או שהוא פג תוקף. נקפיץ חלון.
-  String inputKey = '';
-  bool passed = false;
-  
-  await showDialog(
-    context: context,
-    barrierDismissible: false, // לא נסגר בלחיצה בצד
-    builder: (context) {
-      return PopScope(
-        canPop: false, // מונע סגירה עם כפתור "חזור"
-        child: AlertDialog(
-          title: const Text('See-Desktop License Required'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Please enter your license key from seedesktop.com to connect.'),
-              const SizedBox(height: 15),
-              TextField(
-                onChanged: (val) => inputKey = val.trim(),
-                decoration: const InputDecoration(
-                  hintText: 'Enter License Key',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                passed = false;
-                Navigator.pop(context); // מבטל התחברות לחלוטין
-              },
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                if (inputKey.isEmpty) return;
-                final verify = await verifyLicenseWithServer(inputKey);
-                if (verify.approved) {
-                  await saveLicenseToPrefs(
-                    inputKey,
-                    allowedConnections: verify.allowedConnections,
-                    activeConnections: verify.activeConnections,
-                  );
-                  passed = true;
-                  Navigator.pop(context); // סוגר את החלון וממשיך
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(verify.message),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              },
-              child: const Text('Activate & Connect'),
-            )
-          ],
-        ),
-      );
-    }
-  );
-  
-  return passed;
-}
-// ==========================================

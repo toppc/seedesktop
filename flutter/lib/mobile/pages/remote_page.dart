@@ -22,6 +22,7 @@ import '../../common/widgets/remote_input.dart';
 import '../../models/input_model.dart';
 import '../../models/model.dart';
 import '../../models/platform_model.dart';
+import '../../utils/freemium_guard.dart';
 import '../../utils/image.dart';
 import '../widgets/dialog.dart';
 import '../widgets/custom_scale_widget.dart';
@@ -61,6 +62,7 @@ class RemotePage extends StatefulWidget {
 
 class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
   Timer? _timer;
+  Timer? _freeSessionLimitTimer;
   bool _showBar = !isWebDesktop;
   bool _showGestureHelp = false;
   String _value = '';
@@ -77,6 +79,7 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
   final FocusNode _mobileFocusNode = FocusNode();
   final FocusNode _physicalFocusNode = FocusNode();
   var _showEdit = false; // use soft keyboard
+  bool _sessionLimitTriggered = false;
 
   InputModel get inputModel => gFFI.inputModel;
   SessionID get sessionId => gFFI.sessionId;
@@ -122,6 +125,7 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
       }
       _disableAndroidSoftKeyboard(
           isKeyboardVisible: keyboardVisibilityController.isVisible);
+      _startFreeSessionLimitTimerIfNeeded();
     });
     WidgetsBinding.instance.addObserver(this);
   }
@@ -140,6 +144,7 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
     _physicalFocusNode.dispose();
     await gFFI.close();
     _timer?.cancel();
+    _freeSessionLimitTimer?.cancel();
     _timerDidChangeMetrics?.cancel();
     _iosKeyboardWorkaroundTimer?.cancel();
     gFFI.dialogManager.dismissAll();
@@ -152,6 +157,26 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
     // The inner logic of `on_voice_call_closed` will check if the voice call is active.
     // Only one client is considered here for now.
     gFFI.chatModel.onVoiceCallClosed("End connetion");
+  }
+
+  Future<void> _startFreeSessionLimitTimerIfNeeded() async {
+    if (_freeSessionLimitTimer != null || _sessionLimitTriggered) {
+      return;
+    }
+    if (await hasValidLicenseLocal()) {
+      return;
+    }
+    _freeSessionLimitTimer =
+        Timer(const Duration(seconds: kFreeSessionLimitSeconds), () async {
+      if (_sessionLimitTriggered) return;
+      _sessionLimitTriggered = true;
+      closeConnection();
+      await Future.delayed(const Duration(milliseconds: 250));
+      final rootContext = globalKey.currentContext;
+      if (rootContext != null) {
+        await showFreeSessionLimitReachedDialog(rootContext);
+      }
+    });
   }
 
   @override

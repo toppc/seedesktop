@@ -19,6 +19,7 @@ import '../../models/input_model.dart';
 import '../../models/platform_model.dart';
 import '../../common/shared_state.dart';
 import '../../utils/image.dart';
+import '../../utils/freemium_guard.dart';
 import '../widgets/remote_toolbar.dart';
 import '../widgets/kb_layout_type_chooser.dart';
 import '../widgets/tabbar_widget.dart';
@@ -78,6 +79,7 @@ class _RemotePageState extends State<RemotePage>
         MultiWindowListener,
         TickerProviderStateMixin {
   Timer? _timer;
+  Timer? _freeSessionLimitTimer;
   String keyboardMode = "legacy";
   bool _isWindowBlur = false;
   final _cursorOverImage = false.obs;
@@ -101,6 +103,7 @@ class _RemotePageState extends State<RemotePage>
   Function(bool)? _onEnterOrLeaveImage4Toolbar;
 
   late FFI _ffi;
+  bool _sessionLimitTriggered = false;
 
   SessionID get sessionId => _ffi.sessionId;
 
@@ -126,6 +129,7 @@ class _RemotePageState extends State<RemotePage>
           _ffi.ffiModel.pi.platform, _ffi.dialogManager);
       _ffi.recordingModel
           .updateStatus(bind.sessionGetIsRecording(sessionId: _ffi.sessionId));
+      _startFreeSessionLimitTimerIfNeeded();
     });
     _ffi.canvasModel.initializeEdgeScrollFallback(this);
     _ffi.start(
@@ -333,6 +337,7 @@ class _RemotePageState extends State<RemotePage>
     _rawKeyFocusNode.dispose();
     await _ffi.close(closeSession: closeSession);
     _timer?.cancel();
+    _freeSessionLimitTimer?.cancel();
     _ffi.dialogManager.dismissAll();
     if (closeSession) {
       await SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual,
@@ -631,6 +636,27 @@ class _RemotePageState extends State<RemotePage>
 
   @override
   bool get wantKeepAlive => true;
+
+  Future<void> _startFreeSessionLimitTimerIfNeeded() async {
+    if (_freeSessionLimitTimer != null || _sessionLimitTriggered) {
+      return;
+    }
+    if (await hasValidLicenseLocal()) {
+      return;
+    }
+    _freeSessionLimitTimer =
+        Timer(const Duration(seconds: kFreeSessionLimitSeconds), () async {
+      if (_sessionLimitTriggered) return;
+      _sessionLimitTriggered = true;
+      closeConnection(id: widget.id);
+      widget.tabController?.jumpToByKey(kTabLabelHomePage);
+      await Future.delayed(const Duration(milliseconds: 250));
+      final rootContext = globalKey.currentContext;
+      if (rootContext != null) {
+        await showFreeSessionLimitReachedDialog(rootContext);
+      }
+    });
+  }
 }
 
 /// A widget that tracks the view size and updates CanvasModel.updateViewStyle()

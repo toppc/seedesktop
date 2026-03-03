@@ -15,7 +15,6 @@ src/version.rs
 cert.pfx
 *.bak
 *png
-!flutter/assets/see-desktop-tray.png
 *svg
 *jpg
 sciter.dll

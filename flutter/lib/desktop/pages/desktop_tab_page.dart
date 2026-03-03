@@ -62,6 +62,17 @@ class _DesktopTabPageState extends State<DesktopTabPage> {
         key: const ValueKey(kTabLabelSavedConnectionsPage),
       ),
     ));
+    tabController.add(TabInfo(
+      key: kTabLabelSettingPage,
+      label: kTabLabelSettingPage,
+      selectedIcon: Icons.build_sharp,
+      unselectedIcon: Icons.build_outlined,
+      closable: false,
+      page: DesktopSettingPage(
+        key: const ValueKey(kTabLabelSettingPage),
+        initialTabkey: SettingsTabKey.general,
+      ),
+    ));
     if (bind.isIncomingOnly()) {
       tabController.onSelected = (key) {
         if (key == kTabLabelHomePage) {
@@ -108,7 +119,7 @@ class _DesktopTabPageState extends State<DesktopTabPage> {
             body: DesktopTab(
               controller: tabController,
               tail: Offstage(
-                offstage: bind.isIncomingOnly() || bind.isDisableSettings(),
+                offstage: bind.isIncomingOnly(),
                 child: ActionIcon(
                   message: 'Settings',
                   icon: IconFont.menu,

@@ -95,12 +95,21 @@ jobs:
       - name: Prepare Standalone Bundle
         shell: pwsh
         run: |
-          $buildDir = "flutter/build/windows/runner/Release"
           $outDir = "dist"
           New-Item -ItemType Directory -Force -Path $outDir
           
-          Rename-Item -Path "$buildDir/rustdesk.exe" -NewName "See-Desktop.exe" -Force
-          Move-Item -Path "$buildDir/*" -Destination "$outDir/" -Force
+          $exeFile = Get-ChildItem -Path flutter/build/windows -Filter "rustdesk.exe" -Recurse | Select-Object -First 1
+          
+          if ($exeFile) {
+              $buildDir = Split-Path $exeFile.FullName
+              Write-Host "Found executable in: $buildDir"
+              
+              Rename-Item -Path $exeFile.FullName -NewName "See-Desktop.exe" -Force
+              Move-Item -Path "$buildDir/*" -Destination "$outDir/" -Force
+          } else {
+              Write-Error "Could not find rustdesk.exe! The build might have failed silently."
+              exit 1
+          }
 
       - name: Upload Single Executable
         uses: actions/upload-artifact@v4

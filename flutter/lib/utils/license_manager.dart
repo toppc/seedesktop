@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 const String kLicenseServerBaseUrl = 'http://187.124.13.191';
+const String kLicenseCheckEndpoint =
+    'https://seedesktop.com/check_license.php';
 const String kLicenseCommunicationErrorMessage =
     'שגיאת תקשורת: לא ניתן להתחבר לשרת הרישיונות. בדוק את חיבור האינטרנט שלך.\n'
     'Communication error: Unable to connect to the license server. Check your internet connection.';
@@ -42,11 +44,8 @@ Future<LicenseVerifyResult> verifyLicenseWithServer(String licenseKey) async {
 
   try {
     final response = await http
-        .post(
-          Uri.parse('$kLicenseServerBaseUrl/verify_license'),
-          headers: const {'Content-Type': 'application/json'},
-          body: jsonEncode({'license_key': key}),
-        )
+        .get(Uri.parse(kLicenseCheckEndpoint)
+            .replace(queryParameters: {'key': key}))
         .timeout(const Duration(seconds: 10));
 
     Map<String, dynamic> payload = {};
@@ -57,6 +56,7 @@ Future<LicenseVerifyResult> verifyLicenseWithServer(String licenseKey) async {
     }
 
     final serverMessage = payload['message']?.toString();
+    final status = payload['status']?.toString().toLowerCase();
     final allowedConnections =
         int.tryParse(payload['allowed_connections']?.toString() ?? '') ??
             int.tryParse(payload['max_connections']?.toString() ?? '') ??
@@ -64,12 +64,19 @@ Future<LicenseVerifyResult> verifyLicenseWithServer(String licenseKey) async {
     final activeConnections =
         int.tryParse(payload['active_connections']?.toString() ?? '') ?? 0;
 
-    if (response.statusCode == 200 && payload['status']?.toString() == 'success') {
+    if (response.statusCode == 200 && status == 'valid') {
       return LicenseVerifyResult(
         approved: true,
         message: serverMessage ?? 'Approved',
         allowedConnections: allowedConnections,
         activeConnections: activeConnections,
+      );
+    }
+
+    if (response.statusCode == 200 && status == 'invalid') {
+      return LicenseVerifyResult(
+        approved: false,
+        message: serverMessage ?? 'License is invalid.',
       );
     }
 

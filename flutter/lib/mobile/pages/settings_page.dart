@@ -965,7 +965,7 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
             SettingsTile(
               title: Text(translate("Privacy Statement")),
               onPressed: (context) =>
-                  launchUrlString('https://toppc.co.il/terms'),
+                  launchUrlString('https://seedesktop.com/terms'),
               leading: Icon(Icons.privacy_tip),
             )
           ],
@@ -1078,12 +1078,12 @@ void showAbout(OverlayDialogManager dialogManager) {
         Text('Version: $version'),
         InkWell(
             onTap: () async {
-              const url = 'https://toppc.co.il/';
+              const url = 'https://seedesktop.com/';
               await launchUrl(Uri.parse(url));
             },
             child: Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text('toppc.co.il',
+              child: Text('seedesktop.com',
                   style: TextStyle(
                     decoration: TextDecoration.underline,
                   )),

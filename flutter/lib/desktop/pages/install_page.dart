@@ -187,9 +187,9 @@ class _InstallPageBodyState extends State<_InstallPageBody>
                           InkWell(
                             hoverColor: Colors.transparent,
                             onTap: () =>
-                                launchUrlString('https://toppc.co.il/terms'),
+                                launchUrlString('https://seedesktop.com/terms'),
                             child: Tooltip(
-                              message: 'https://toppc.co.il/terms',
+                              message: 'https://seedesktop.com/terms',
                               child: Row(children: [
                                 Icon(Icons.launch_outlined, size: 16)
                                     .marginOnly(right: 5),

@@ -12,7 +12,6 @@ import 'package:flutter_hbb/models/state_model.dart';
 import 'package:flutter_hbb/utils/license_manager.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher_string.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:flutter_hbb/models/peer_model.dart';
 
@@ -36,21 +35,11 @@ class OnlineStatusWidget extends StatefulWidget {
 /// State for the connection page.
 class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
   final _svcStopped = Get.find<RxBool>(tag: 'stop-service');
-  final _svcIsUsingPublicServer = true.obs;
   final _licenseStatusText = 'ללא רישיון'.obs;
   Timer? _updateTimer;
 
   double get em => 14.0;
   double? get height => bind.isIncomingOnly() ? null : em * 3;
-
-  void onUsePublicServerGuide() {
-    const url = "https://rustdesk.com/pricing";
-    canLaunchUrlString(url).then((can) {
-      if (can) {
-        launchUrlString(url);
-      }
-    });
-  }
 
   @override
   void initState() {
@@ -80,37 +69,6 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
                       style: TextStyle(
                           decoration: TextDecoration.underline, fontSize: em)))
               .marginOnly(left: em),
-        );
-
-    setupServerWidget() => Flexible(
-          child: Offstage(
-            offstage: !(!_svcStopped.value &&
-                stateGlobal.svcStatus.value == SvcStatus.ready &&
-                _svcIsUsingPublicServer.value),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text(', ', style: TextStyle(fontSize: em)),
-                Flexible(
-                  child: InkWell(
-                    onTap: onUsePublicServerGuide,
-                    child: Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            translate('setup_server_tip'),
-                            style: TextStyle(
-                                decoration: TextDecoration.underline,
-                                fontSize: em),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              ],
-            ),
-          ),
         );
 
     basicWidget() => Row(
@@ -147,9 +105,6 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
             ),
             // stop
             if (!isIncomingOnly) startServiceWidget(),
-            // ready && public
-            // No need to show the guide if is custom client.
-            if (!isIncomingOnly) setupServerWidget(),
           ],
         );
 
@@ -196,7 +151,6 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
     } else {
       stateGlobal.svcStatus.value = SvcStatus.notReady;
     }
-    _svcIsUsingPublicServer.value = await bind.mainIsUsingPublicServer();
     try {
       stateGlobal.videoConnCount.value = status['video_conn_count'] as int;
     } catch (_) {}
@@ -687,7 +641,7 @@ Future<bool> enforceSeeDeskLicense(BuildContext context) async {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Please enter your license key from toppc.co.il to connect.'),
+              const Text('Please enter your license key from seedesktop.com to connect.'),
               const SizedBox(height: 15),
               TextField(
                 onChanged: (val) => inputKey = val.trim(),

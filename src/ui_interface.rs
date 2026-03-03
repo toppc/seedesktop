@@ -86,6 +86,10 @@ lazy_static::lazy_static! {
 }
 
 const INIT_ASYNC_JOB_STATUS: &str = " ";
+const LOCKED_RENDEZVOUS_SERVER: &str = "187.124.13.191";
+const LOCKED_RELAY_SERVER: &str = "";
+const LOCKED_API_SERVER: &str = "";
+const LOCKED_SERVER_KEY: &str = "F0QrJCreHax0mBClNCQ6BUC3G+Nq8IxF7WoGr1imGJc=root@srv1435562";
 
 #[cfg(any(target_os = "android", target_os = "ios", feature = "flutter"))]
 #[inline]
@@ -161,10 +165,18 @@ pub fn refresh_options() {
 
 #[inline]
 pub fn get_option<T: AsRef<str>>(key: T) -> String {
+    let key = key.as_ref();
+    match key {
+        "custom-rendezvous-server" => return LOCKED_RENDEZVOUS_SERVER.to_owned(),
+        "relay-server" => return LOCKED_RELAY_SERVER.to_owned(),
+        "api-server" => return LOCKED_API_SERVER.to_owned(),
+        "key" => return LOCKED_SERVER_KEY.to_owned(),
+        _ => {}
+    }
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         let map = OPTIONS.lock().unwrap();
-        if let Some(v) = map.get(key.as_ref()) {
+        if let Some(v) = map.get(key) {
             v.to_owned()
         } else {
             "".to_owned()
@@ -172,7 +184,7 @@ pub fn get_option<T: AsRef<str>>(key: T) -> String {
     }
     #[cfg(any(target_os = "android", target_os = "ios"))]
     {
-        Config::get_option(key.as_ref())
+        Config::get_option(key)
     }
 }
 
@@ -407,6 +419,13 @@ pub fn set_options(m: HashMap<String, String>) {
 
 #[inline]
 pub fn set_option(key: String, value: String) {
+    if key == "custom-rendezvous-server"
+        || key == "relay-server"
+        || key == "api-server"
+        || key == "key"
+    {
+        return;
+    }
     if &key == "stop-service" {
         #[cfg(target_os = "macos")]
         {

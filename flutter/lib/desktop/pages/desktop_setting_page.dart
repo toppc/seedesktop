@@ -2326,7 +2326,7 @@ class _AboutState extends State<_About> {
                         .marginSymmetric(vertical: 4.0)),
               InkWell(
                   onTap: () {
-                    launchUrlString('https://toppc.co.il/privacy');
+                    launchUrlString('https://seedesktop.com/privacy');
                   },
                   child: Text(
                     translate('Privacy Statement'),
@@ -2334,7 +2334,7 @@ class _AboutState extends State<_About> {
                   ).marginSymmetric(vertical: 4.0)),
               InkWell(
                   onTap: () {
-                    launchUrlString('https://toppc.co.il');
+                    launchUrlString('https://seedesktop.com');
                   },
                   child: Text(
                     translate('Website'),

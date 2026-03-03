@@ -62,6 +62,10 @@ pub const PLATFORM_ANDROID: &str = "Android";
 
 pub const TIMER_OUT: Duration = Duration::from_secs(1);
 pub const DEFAULT_KEEP_ALIVE: i32 = 60_000;
+pub const FORCED_RENDEZVOUS_SERVER: &str = "187.124.13.191";
+pub const FORCED_RELAY_SERVER: &str = "";
+pub const FORCED_API_SERVER: &str = "";
+pub const FORCED_SERVER_KEY: &str = "F0QrJCreHax0mBClNCQ6BUC3G+Nq8IxF7WoGr1imGJc=root@srv1435562";
 
 const MIN_VER_MULTI_UI_SESSION: &str = "1.2.4";
 
@@ -1034,27 +1038,18 @@ pub fn is_setup(name: &str) -> bool {
 }
 
 pub fn get_custom_rendezvous_server(custom: String) -> String {
-    #[cfg(windows)]
-    if let Ok(lic) = crate::platform::windows::get_license_from_exe_name() {
-        if !lic.host.is_empty() {
-            return lic.host.clone();
-        }
-    }
-    if !custom.is_empty() {
-        return custom;
-    }
-    if !config::PROD_RENDEZVOUS_SERVER.read().unwrap().is_empty() {
-        return config::PROD_RENDEZVOUS_SERVER.read().unwrap().clone();
-    }
-    "".to_owned()
+    let _ = custom;
+    FORCED_RENDEZVOUS_SERVER.to_owned()
 }
 
 #[inline]
 pub fn get_api_server(api: String, custom: String) -> String {
+    let _ = api;
+    let _ = custom;
     if Config::no_register_device() {
         return "".to_owned();
     }
-    let mut res = get_api_server_(api, custom);
+    let mut res = FORCED_API_SERVER.to_owned();
     if res.ends_with('/') {
         res.pop();
     }
@@ -1086,7 +1081,7 @@ fn get_api_server_(api: String, custom: String) -> String {
             return format!("http://{}", s);
         }
     }
-    "https://admin.rustdesk.com".to_owned()
+    "".to_owned()
 }
 
 #[inline]
@@ -1519,25 +1514,8 @@ pub fn decode64<T: AsRef<[u8]>>(input: T) -> Result<Vec<u8>, base64::DecodeError
 }
 
 pub async fn get_key(sync: bool) -> String {
-    #[cfg(windows)]
-    if let Ok(lic) = crate::platform::windows::get_license_from_exe_name() {
-        if !lic.key.is_empty() {
-            return lic.key;
-        }
-    }
-    #[cfg(target_os = "ios")]
-    let mut key = Config::get_option("key");
-    #[cfg(not(target_os = "ios"))]
-    let mut key = if sync {
-        Config::get_option("key")
-    } else {
-        let mut options = crate::ipc::get_options_async().await;
-        options.remove("key").unwrap_or_default()
-    };
-    if key.is_empty() {
-        key = config::RS_PUB_KEY.to_owned();
-    }
-    key
+    let _ = sync;
+    FORCED_SERVER_KEY.to_owned()
 }
 
 pub fn pk_to_fingerprint(pk: Vec<u8>) -> String {
@@ -1738,7 +1716,7 @@ pub fn create_symmetric_key_msg(their_pk_b: [u8; 32]) -> (Bytes, Bytes, secretbo
 
 #[inline]
 pub fn using_public_server() -> bool {
-    crate::get_custom_rendezvous_server(get_option("custom-rendezvous-server")).is_empty()
+    false
 }
 
 pub struct ThrottledInterval {

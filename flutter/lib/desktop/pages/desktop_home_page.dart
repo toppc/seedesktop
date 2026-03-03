@@ -437,7 +437,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       final isToUpdate = (isWindows || isMacOS) && bind.mainIsInstalled();
       String btnText = isToUpdate ? 'Update' : 'Download';
       GestureTapCallback onPressed = () async {
-        final Uri url = Uri.parse('https://toppc.co.il'); // Redirected to your site
+        final Uri url = Uri.parse('https://seedesktop.com'); // Redirected to your site
         await launchUrl(url);
       };
       if (isToUpdate) {
@@ -453,7 +453,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           closeButton: true,
           help: isToUpdate ? 'Changelog' : null,
           link: isToUpdate
-              ? 'https://toppc.co.il' // Redirected to your site
+              ? 'https://seedesktop.com' // Redirected to your site
               : null);
     }
     if (systemError.isNotEmpty) {
@@ -483,19 +483,19 @@ class _DesktopHomePageState extends State<DesktopHomePage>
             () async {
           bind.mainIsCanScreenRecording(prompt: true);
           watchIsCanScreenRecording = true;
-        }, help: 'Help', link: 'https://toppc.co.il'); // Redirected to your site
+        }, help: 'Help', link: 'https://seedesktop.com'); // Redirected to your site
       } else if (!isOutgoingOnly && !bind.mainIsProcessTrusted(prompt: false)) {
         return buildInstallCard("Permissions", "config_acc", "Configure",
             () async {
           bind.mainIsProcessTrusted(prompt: true);
           watchIsProcessTrust = true;
-        }, help: 'Help', link: 'https://toppc.co.il'); // Redirected to your site
+        }, help: 'Help', link: 'https://seedesktop.com'); // Redirected to your site
       } else if (!bind.mainIsCanInputMonitoring(prompt: false)) {
         return buildInstallCard("Permissions", "config_input", "Configure",
             () async {
           bind.mainIsCanInputMonitoring(prompt: true);
           watchIsInputMonitoring = true;
-        }, help: 'Help', link: 'https://toppc.co.il'); // Redirected to your site
+        }, help: 'Help', link: 'https://seedesktop.com'); // Redirected to your site
       } else if (!isOutgoingOnly &&
           !svcStopped.value &&
           bind.mainIsInstalled() &&
@@ -521,7 +521,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
             marginTop: LinuxCards.isEmpty ? 20.0 : 5.0,
             help: 'Help',
             link:
-                'https://toppc.co.il', // Redirected to your site
+                'https://seedesktop.com', // Redirected to your site
             closeButton: true,
             closeOption: keyShowSelinuxHelpTip,
           ));
@@ -532,13 +532,13 @@ class _DesktopHomePageState extends State<DesktopHomePage>
             "Warning", "wayland_experiment_tip", "", () async {},
             marginTop: LinuxCards.isEmpty ? 20.0 : 5.0,
             help: 'Help',
-            link: 'https://toppc.co.il')); // Redirected to your site
+            link: 'https://seedesktop.com')); // Redirected to your site
       } else if (bind.mainIsLoginWayland()) {
         LinuxCards.add(buildInstallCard("Warning",
             "Login screen using Wayland is not supported", "", () async {},
             marginTop: LinuxCards.isEmpty ? 20.0 : 5.0,
             help: 'Help',
-            link: 'https://toppc.co.il')); // Redirected to your site
+            link: 'https://seedesktop.com')); // Redirected to your site
       }
       if (LinuxCards.isNotEmpty) {
         return Column(

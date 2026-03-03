@@ -1,9 +1,6 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_hbb/utils/license_manager.dart';
 
 Future<void> showSeeDeskLoginDialog(BuildContext context) async {
@@ -30,47 +27,25 @@ Future<void> showSeeDeskLoginDialog(BuildContext context) async {
             });
 
             try {
-              final response = await http
-                  .post(
-                    Uri.parse('$kLicenseServerBaseUrl/verify_license'),
-                    headers: const {'Content-Type': 'application/json'},
-                    body: jsonEncode({'license_key': license}),
-                  )
-                  .timeout(const Duration(seconds: 10));
-
-              Map<String, dynamic> payload = {};
-              try {
-                payload = jsonDecode(response.body) as Map<String, dynamic>;
-              } catch (_) {
-                payload = {};
-              }
-
-              final message = payload['message']?.toString() ??
-                  'License verification failed (${response.statusCode}).';
-
-              final approved = response.statusCode == 200 &&
-                  payload['status']?.toString() == 'success';
-              if (!approved) {
+              final verify = await verifyLicenseWithServer(license);
+              if (!verify.approved) {
                 setState(() {
-                  errorText = message;
+                  errorText = verify.message;
                   loading = false;
                 });
                 if (dialogContext.mounted) {
                   ScaffoldMessenger.of(dialogContext).showSnackBar(
-                    SnackBar(content: Text(message)),
+                    SnackBar(content: Text(verify.message)),
                   );
                 }
                 return;
               }
 
-              final maxConnections =
-                  int.tryParse(payload['max_connections']?.toString() ?? '');
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.setString('saved_license', license);
-              await prefs.setString('masked_license', maskLicense(license));
-              if (maxConnections != null) {
-                await prefs.setInt('max_connections', maxConnections);
-              }
+              await saveLicenseToPrefs(
+                license,
+                allowedConnections: verify.allowedConnections,
+                activeConnections: verify.activeConnections,
+              );
 
               if (dialogContext.mounted) {
                 Navigator.of(dialogContext).pop();

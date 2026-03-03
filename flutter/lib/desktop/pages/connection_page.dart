@@ -37,6 +37,7 @@ class OnlineStatusWidget extends StatefulWidget {
 class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
   final _svcStopped = Get.find<RxBool>(tag: 'stop-service');
   final _svcIsUsingPublicServer = true.obs;
+  final _licenseStatusText = 'ללא רישיון'.obs;
   Timer? _updateTimer;
 
   double get em => 14.0;
@@ -57,6 +58,7 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
     _updateTimer = periodic_immediate(Duration(seconds: 1), () async {
       updateStatus();
     });
+    _loadLicenseStatus();
   }
 
   @override
@@ -131,6 +133,18 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
               width: isIncomingOnly ? 226 : null,
               child: _buildConnStatusMsg(),
             ),
+            Flexible(
+              child: Container(
+                margin: EdgeInsets.only(left: em),
+                child: Obx(
+                  () => Text(
+                    _licenseStatusText.value,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: em),
+                  ),
+                ),
+              ),
+            ),
             // stop
             if (!isIncomingOnly) startServiceWidget(),
             // ready && public
@@ -186,6 +200,21 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
     try {
       stateGlobal.videoConnCount.value = status['video_conn_count'] as int;
     } catch (_) {}
+    await _loadLicenseStatus();
+  }
+
+  Future<void> _loadLicenseStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedLicense = prefs.getString('saved_license');
+    final maskedLicense = prefs.getString('masked_license');
+    final statusText = (savedLicense != null && savedLicense.isNotEmpty)
+        ? (maskedLicense != null && maskedLicense.isNotEmpty
+            ? 'רישיון פעיל: $maskedLicense'
+            : 'רישיון פעיל')
+        : 'ללא רישיון';
+    if (_licenseStatusText.value != statusText) {
+      _licenseStatusText.value = statusText;
+    }
   }
 }
 
@@ -634,7 +663,11 @@ Future<bool> enforceSeeDeskLicense(BuildContext context) async {
   if (savedKey != null && savedKey.isNotEmpty) {
     final verify = await verifyLicenseWithServer(savedKey);
     if (verify.approved) {
-      await saveLicenseToPrefs(savedKey, maxConnections: verify.maxConnections);
+      await saveLicenseToPrefs(
+        savedKey,
+        allowedConnections: verify.allowedConnections,
+        activeConnections: verify.activeConnections,
+      );
       return true; // הכל תקין, תן לו להתחבר!
     }
   }
@@ -680,7 +713,8 @@ Future<bool> enforceSeeDeskLicense(BuildContext context) async {
                 if (verify.approved) {
                   await saveLicenseToPrefs(
                     inputKey,
-                    maxConnections: verify.maxConnections,
+                    allowedConnections: verify.allowedConnections,
+                    activeConnections: verify.activeConnections,
                   );
                   passed = true;
                   Navigator.pop(context); // סוגר את החלון וממשיך

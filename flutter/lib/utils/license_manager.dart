@@ -12,12 +12,15 @@ const String kLicenseCommunicationErrorMessage =
 class LicenseVerifyResult {
   final bool approved;
   final String message;
-  final int? maxConnections;
+  final int allowedConnections;
+  final int activeConnections;
+  int get maxConnections => allowedConnections;
 
   const LicenseVerifyResult({
     required this.approved,
     required this.message,
-    this.maxConnections,
+    this.allowedConnections = 0,
+    this.activeConnections = 0,
   });
 }
 
@@ -54,14 +57,19 @@ Future<LicenseVerifyResult> verifyLicenseWithServer(String licenseKey) async {
     }
 
     final serverMessage = payload['message']?.toString();
-    final maxConnections =
-        int.tryParse(payload['max_connections']?.toString() ?? '');
+    final allowedConnections =
+        int.tryParse(payload['allowed_connections']?.toString() ?? '') ??
+            int.tryParse(payload['max_connections']?.toString() ?? '') ??
+            0;
+    final activeConnections =
+        int.tryParse(payload['active_connections']?.toString() ?? '') ?? 0;
 
     if (response.statusCode == 200 && payload['status']?.toString() == 'success') {
       return LicenseVerifyResult(
         approved: true,
         message: serverMessage ?? 'Approved',
-        maxConnections: maxConnections,
+        allowedConnections: allowedConnections,
+        activeConnections: activeConnections,
       );
     }
 
@@ -92,13 +100,20 @@ Future<LicenseVerifyResult> verifyLicenseWithServer(String licenseKey) async {
 
 Future<void> saveLicenseToPrefs(
   String licenseKey, {
+  int? allowedConnections,
+  int? activeConnections,
   int? maxConnections,
 }) async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.setString('saved_license', licenseKey);
   await prefs.setString('masked_license', maskLicense(licenseKey));
-  if (maxConnections != null) {
-    await prefs.setInt('max_connections', maxConnections);
+  final effectiveAllowed = allowedConnections ?? maxConnections;
+  if (effectiveAllowed != null) {
+    await prefs.setInt('allowed_connections', effectiveAllowed);
+    await prefs.setInt('max_connections', effectiveAllowed);
+  }
+  if (activeConnections != null) {
+    await prefs.setInt('active_connections', activeConnections);
   }
 }
 
@@ -107,6 +122,8 @@ Future<void> clearLicensePrefs() async {
   await prefs.remove('saved_license');
   await prefs.remove('masked_license');
   await prefs.remove('session_id');
+  await prefs.remove('allowed_connections');
+  await prefs.remove('active_connections');
   await prefs.remove('max_connections');
 }
 

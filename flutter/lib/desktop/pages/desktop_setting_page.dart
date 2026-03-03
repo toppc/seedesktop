@@ -814,7 +814,8 @@ class _Account extends StatefulWidget {
 
 class _AccountState extends State<_Account> {
   String? maskedLicense;
-  int? maxConnections;
+  int allowedConnections = 0;
+  int activeConnections = 0;
   String? sessionId;
   String? fullLicense;
 
@@ -829,7 +830,10 @@ class _AccountState extends State<_Account> {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
       maskedLicense = prefs.getString('masked_license');
-      maxConnections = prefs.getInt('max_connections');
+      allowedConnections = prefs.getInt('allowed_connections') ??
+          prefs.getInt('max_connections') ??
+          0;
+      activeConnections = prefs.getInt('active_connections') ?? 0;
       sessionId = prefs.getString('session_id');
       fullLicense = prefs.getString('saved_license');
     });
@@ -876,7 +880,8 @@ class _AccountState extends State<_Account> {
 
     setState(() {
       maskedLicense = null;
-      maxConnections = null;
+      allowedConnections = 0;
+      activeConnections = 0;
       sessionId = null;
       fullLicense = null;
     });
@@ -916,7 +921,7 @@ class _AccountState extends State<_Account> {
               Text("רישיון פעיל: $maskedLicense",
                   style: const TextStyle(fontSize: 16)),
               const SizedBox(height: 8),
-              Text("חיבורים במקביל: 1 / $maxConnections",
+              Text("$activeConnections / $allowedConnections חיבורים במקביל",
                   style: const TextStyle(fontSize: 16)),
             ],
           ),
@@ -2194,7 +2199,7 @@ class __PrinterState extends State<_Printer> {
                               .copyWith(color: Colors.red))
                       .marginOnly(bottom: 10.0)),
         ),
-        _Button('Install {$appName} Printer', () {
+        _Button('Install See-Desktop Printer', () {
           failedMsg.value = '';
           bind.mainSetCommon(key: 'install-printer', value: '');
         })

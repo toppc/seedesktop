@@ -436,7 +436,7 @@ class _PeerTabPageState extends State<PeerTabPage>
           model.currentTab != PeerTabIndex.recent.index, // show based on recent
       child: _hoverAction(
         context: context,
-        toolTip: translate('Add to Favorites'),
+        toolTip: translate('Add to our list'),
         onTap: () async {
           final peers = model.selectedPeers;
           final favs = (await bind.mainGetFav()).toList();

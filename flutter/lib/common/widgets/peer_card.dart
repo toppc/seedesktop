@@ -867,7 +867,7 @@ abstract class BasePeerCard extends StatelessWidget {
       childBuilder: (TextStyle? style) => Row(
         children: [
           Text(
-            translate('Add to Favorites'),
+            translate('Add to our list'),
             style: style,
           ),
           Expanded(
@@ -902,7 +902,7 @@ abstract class BasePeerCard extends StatelessWidget {
       childBuilder: (TextStyle? style) => Row(
         children: [
           Text(
-            translate('Remove from Favorites'),
+            translate('Remove from our list'),
             style: style,
           ),
           Expanded(

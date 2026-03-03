@@ -234,6 +234,8 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Favorites", "מועדפים"),
         ("Add to Favorites", "הוסף למועדפים"),
         ("Remove from Favorites", "הסר מהמועדפים"),
+        ("Add to our list", "הוספה לרשימה שלנו"),
+        ("Remove from our list", "הסרה מהרשימה שלנו"),
         ("Empty", "ריק"),
         ("Invalid folder name", "שם תיקייה אינו תקין"),
         ("Socks5 Proxy", "פרוקסי Socks5"),

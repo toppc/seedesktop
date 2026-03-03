@@ -39,7 +39,7 @@ class PeerTabModel with ChangeNotifier {
   ];
   List<bool> isEnabled = List.from([
     true,
-    true,
+    false,
     !isWeb && bind.mainGetLocalOption(key: "disable-discovery-panel") != "Y",
     false,
     false,

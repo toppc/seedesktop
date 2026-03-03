@@ -59,6 +59,8 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Forget Password", "Forget password"),
         ("Add to Favorites", "Add to favorites"),
         ("Remove from Favorites", "Remove from favorites"),
+        ("Add to our list", "Add to our list"),
+        ("Remove from our list", "Remove from our list"),
         ("Socks5 Proxy", "Socks5 proxy"),
         ("Socks5/Http(s) Proxy", "Socks5/Http(s) proxy"),
         ("install_daemon_tip", "For starting on boot, you need to install system service."),

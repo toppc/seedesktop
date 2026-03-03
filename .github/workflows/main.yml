@@ -23,11 +23,12 @@ jobs:
           New-Item -ItemType Directory -Force -Path ".\flutter\assets\images"
           New-Item -ItemType Directory -Force -Path ".\flutter\assets"
           
-          Copy-Item -Path ".\custom_branding\app_icon.ico" -Destination ".\flutter\windows\runner\resources\app_icon.ico" -Force
-          Copy-Item -Path ".\custom_branding\logo.png" -Destination ".\flutter\assets\logo.png" -Force
-          Copy-Item -Path ".\custom_branding\logo.png" -Destination ".\flutter\assets\images\logo.png" -Force
-          Copy-Item -Path ".\custom_branding\rustdesk.png" -Destination ".\flutter\assets\rustdesk.png" -Force
-          Copy-Item -Path ".\custom_branding\rustdesk.png" -Destination ".\flutter\assets\images\rustdesk.png" -Force
+          # וידוא קיום תיקיית המיתוג
+          if (Test-Path ".\custom_branding") {
+            Copy-Item -Path ".\custom_branding\app_icon.ico" -Destination ".\flutter\windows\runner\resources\app_icon.ico" -Force
+            Copy-Item -Path ".\custom_branding\logo.png" -Destination ".\flutter\assets\logo.png" -Force
+            Copy-Item -Path ".\custom_branding\logo.png" -Destination ".\flutter\assets\images\logo.png" -Force
+          }
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -51,60 +52,46 @@ jobs:
           for f in files:
               with open(f, 'r', encoding='utf-8') as file:
                   content = file.read()
-              
               if 'pub const RENDEZVOUS_SERVER' in content or 'pub const RS_PUB_KEY' in content:
-                  # הוספנו נקודתיים כדי שלא ימחק בטעות את משתנה הרבים!
                   content = re.sub(r'pub const RENDEZVOUS_SERVER:[^;]+;', 'pub const RENDEZVOUS_SERVER: &\'static str = "187.124.13.191";', content)
                   content = re.sub(r'pub const RS_PUB_KEY:[^;]+;', 'pub const RS_PUB_KEY: &\'static str = "F0QrJCreHax0mBClNCQ6BUC3G+Nq8IxF7WoGr1imGJc=";', content)
-                  
                   with open(f, 'w', encoding='utf-8') as file:
                       file.write(content)
-                  print(f"[SUCCESS] Injected your custom server and key into {f}")
 
-      - name: Setup vcpkg and Build Dependencies
+      - name: Setup vcpkg
         shell: pwsh
         run: |
-          if (Test-Path $env:VCPKG_ROOT) { Remove-Item -Recurse -Force $env:VCPKG_ROOT }
           git clone https://github.com/microsoft/vcpkg $env:VCPKG_ROOT
-          git -C $env:VCPKG_ROOT checkout 120deac3062162151622ca4860575a33844ba10b
           & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat"
           & "$env:VCPKG_ROOT\vcpkg.exe" install --triplet x64-windows-static
-          
-          $targetPath = "$env:VCPKG_ROOT\installed\x64-windows-static"
-          New-Item -ItemType Directory -Force -Path $targetPath
-          Copy-Item -Path ".\vcpkg_installed\x64-windows-static\*" -Destination "$targetPath\" -Recurse -Force
 
       - name: Install FRB codegen
         run: cargo install flutter_rust_bridge_codegen --version 1.80.1 --features uuid --locked
 
-      - name: Prepare Flutter packages
-        shell: pwsh
-        working-directory: ./flutter
-        run: flutter pub get
-
-      - name: Generate bridge files
-        shell: pwsh
-        run: |
-          flutter_rust_bridge_codegen --rust-input ./src/flutter_ffi.rs --dart-output ./flutter/lib/generated_bridge.dart --c-output ./flutter/macos/Runner/bridge_generated.h
-          Copy-Item "flutter/macos/Runner/bridge_generated.h" "flutter/ios/Runner/bridge_generated.h" -Force
-
-      - name: Build
+      - name: Build with Flutter
         shell: pwsh
         run: python build.py --flutter
 
-      - name: Rename Executable
+      - name: Prepare Standalone Bundle
         shell: pwsh
         run: |
-          $files = Get-ChildItem -Path . -Filter "rustdesk.exe" -Recurse
-          foreach ($file in $files) {
-              Rename-Item -Path $file.FullName -NewName "See-Desktop.exe" -Force
-              Write-Host "Renamed $($file.FullName) to See-Desktop.exe successfully!"
-          }
+          # 1. מציאת תיקיית ה-Release של פלאטר
+          $buildDir = "flutter/build/windows/runner/Release"
+          $outDir = "dist"
+          New-Item -ItemType Directory -Force -Path $outDir
+          
+          # 2. שינוי שם ה-EXE הראשי
+          Rename-Item -Path "$buildDir/rustdesk.exe" -NewName "See-Desktop.exe" -Force
+          
+          # 3. התקנת Enigma Virtual Box לצורך איחוד קבצים
+          choco install enigmavirtualbox -y
+          
+          # 4. יצירת קובץ פרויקט לאיחוד (ביצוע Bundle לכל ה-DLLים לתוך ה-EXE)
+          # אנחנו פשוט נעתיק את התיקייה כרגע כגיבוי, אבל נכין אותה לאריזה
+          Move-Item -Path "$buildDir/*" -Destination "$outDir/" -Force
 
-      - name: Upload artifacts
+      - name: Upload Single Executable
         uses: actions/upload-artifact@v4
         with:
-          name: see-desktop-windows
-          path: |
-            target/release/*.exe
-            flutter/build/windows/**/*
+          name: See-Desktop-Windows-Standalone
+          path: dist/ # בשלב זה זה עדיין תיקייה, אבל מסודרת.

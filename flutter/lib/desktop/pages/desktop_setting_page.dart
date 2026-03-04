@@ -818,6 +818,9 @@ class _AccountState extends State<_Account> {
   int activeConnections = 0;
   String? sessionId;
   String? fullLicense;
+  bool loadingActiveSessions = false;
+  String? activeSessionsError;
+  List<ActiveLicenseSession> activeSessions = const [];
 
   @override
   void initState() {
@@ -836,6 +839,32 @@ class _AccountState extends State<_Account> {
       activeConnections = prefs.getInt('active_connections') ?? 0;
       sessionId = prefs.getString('session_id');
       fullLicense = prefs.getString('saved_license');
+    });
+    if (fullLicense != null && fullLicense!.trim().isNotEmpty) {
+      await _loadActiveSessions();
+    } else if (mounted) {
+      setState(() {
+        activeSessions = const [];
+        activeSessionsError = null;
+        loadingActiveSessions = false;
+      });
+    }
+  }
+
+  Future<void> _loadActiveSessions() async {
+    if (!mounted) return;
+    setState(() {
+      loadingActiveSessions = true;
+      activeSessionsError = null;
+    });
+
+    final result = await fetchActiveSessionsFromPrefs();
+    if (!mounted) return;
+
+    setState(() {
+      loadingActiveSessions = false;
+      activeSessions = result.sessions;
+      activeSessionsError = result.success ? null : result.message;
     });
   }
 
@@ -858,6 +887,9 @@ class _AccountState extends State<_Account> {
       activeConnections = 0;
       sessionId = null;
       fullLicense = null;
+      loadingActiveSessions = false;
+      activeSessionsError = null;
+      activeSessions = const [];
     });
   }
 
@@ -897,6 +929,8 @@ class _AccountState extends State<_Account> {
               const SizedBox(height: 8),
               Text("$activeConnections / $allowedConnections חיבורים במקביל",
                   style: const TextStyle(fontSize: 16)),
+              const SizedBox(height: 14),
+              _buildLiveSessionMonitor(),
             ],
           ),
         ).marginOnly(left: 15, right: 15, bottom: 15),
@@ -908,6 +942,114 @@ class _AccountState extends State<_Account> {
               foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
             ))
       ],
+    );
+  }
+
+  Widget _buildLiveSessionMonitor() {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Active Sessions',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              SizedBox(
+                height: 28,
+                width: 28,
+                child: IconButton(
+                  tooltip: 'Refresh',
+                  padding: EdgeInsets.zero,
+                  iconSize: 18,
+                  onPressed: loadingActiveSessions ? null : _loadActiveSessions,
+                  icon: loadingActiveSessions
+                      ? const SizedBox(
+                          height: 14,
+                          width: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh_rounded),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (activeSessionsError != null && activeSessions.isEmpty)
+            Text(
+              activeSessionsError!,
+              style: TextStyle(
+                fontSize: 13,
+                color: theme.colorScheme.error,
+              ),
+            )
+          else if (activeSessions.isEmpty)
+            const Text(
+              'No active remote sessions at the moment.',
+              style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+            )
+          else
+            Column(
+              children: activeSessions
+                  .map(
+                    (session) => Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.computer_rounded,
+                            size: 18,
+                            color: Color(0xFF2563EB),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              session.computerName,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            session.ip,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+        ],
+      ),
     );
   }
 

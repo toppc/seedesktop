@@ -10,6 +10,8 @@ const String kLicenseStartSessionEndpoint =
     '$kLicenseServerBaseUrl/start_session';
 const String kLicenseReleaseConnectionEndpoint =
     '$kLicenseServerBaseUrl/release_connection';
+const String kLicenseGetActiveSessionsEndpoint =
+    '$kLicenseServerBaseUrl/get_active_sessions';
 const String kLicenseCommunicationErrorMessage =
     'שגיאת תקשורת: לא ניתן להתחבר לשרת הרישיונות. בדוק את חיבור האינטרנט שלך.\n'
     'Communication error: Unable to connect to the license server. Check your internet connection.';
@@ -129,6 +131,28 @@ class LicenseSessionResult {
   });
 }
 
+class ActiveLicenseSession {
+  final String computerName;
+  final String ip;
+
+  const ActiveLicenseSession({
+    required this.computerName,
+    required this.ip,
+  });
+}
+
+class ActiveSessionsResult {
+  final bool success;
+  final String message;
+  final List<ActiveLicenseSession> sessions;
+
+  const ActiveSessionsResult({
+    required this.success,
+    required this.message,
+    this.sessions = const [],
+  });
+}
+
 Future<void> _incStartedSessionsCounter() async {
   final prefs = await SharedPreferences.getInstance();
   final current = prefs.getInt(_kStartedSessionsCounterKey) ?? 0;
@@ -238,6 +262,93 @@ Future<LicenseSessionResult> startSessionFromPrefs() async {
     );
   }
   return startSession(license);
+}
+
+Future<ActiveSessionsResult> fetchActiveSessions(String licenseKey) async {
+  final key = licenseKey.trim();
+  if (key.isEmpty) {
+    return const ActiveSessionsResult(
+      success: false,
+      message: 'License key is required.',
+    );
+  }
+
+  try {
+    final response = await http
+        .post(
+          Uri.parse(kLicenseGetActiveSessionsEndpoint),
+          headers: const {'Content-Type': 'application/json'},
+          body: jsonEncode({'license_key': key}),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    Map<String, dynamic> payload = {};
+    try {
+      payload = jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (_) {
+      payload = {};
+    }
+
+    final status = payload['status']?.toString().toLowerCase();
+    final message = payload['message']?.toString() ?? '';
+    final sessionsRaw = payload['sessions'];
+
+    final sessions = <ActiveLicenseSession>[];
+    if (sessionsRaw is List) {
+      for (final entry in sessionsRaw) {
+        if (entry is Map) {
+          final computerName = entry['computer_name']?.toString().trim() ?? '';
+          final ip = entry['ip']?.toString().trim() ?? '';
+          sessions.add(
+            ActiveLicenseSession(
+              computerName:
+                  computerName.isEmpty ? 'Unknown computer' : computerName,
+              ip: ip.isEmpty ? 'Unknown IP' : ip,
+            ),
+          );
+        }
+      }
+    }
+
+    final isOkStatus = status == 'success' || status == 'valid';
+    if (response.statusCode == 200 && (isOkStatus || payload.containsKey('sessions'))) {
+      return ActiveSessionsResult(
+        success: true,
+        message: message.isEmpty ? 'Active sessions fetched.' : message,
+        sessions: sessions,
+      );
+    }
+
+    return ActiveSessionsResult(
+      success: false,
+      message: message.isEmpty
+          ? 'Failed to load active sessions (${response.statusCode}).'
+          : message,
+      sessions: sessions,
+    );
+  } on TimeoutException {
+    return const ActiveSessionsResult(
+      success: false,
+      message: kLicenseCommunicationErrorMessage,
+    );
+  } catch (_) {
+    return const ActiveSessionsResult(
+      success: false,
+      message: kLicenseCommunicationErrorMessage,
+    );
+  }
+}
+
+Future<ActiveSessionsResult> fetchActiveSessionsFromPrefs() async {
+  final prefs = await SharedPreferences.getInstance();
+  final license = prefs.getString('saved_license');
+  if (license == null || license.trim().isEmpty) {
+    return const ActiveSessionsResult(
+      success: false,
+      message: 'No saved license.',
+    );
+  }
+  return fetchActiveSessions(license);
 }
 
 Future<void> saveLicenseToPrefs(

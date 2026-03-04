@@ -8,6 +8,10 @@ import 'package:flutter_hbb/common/widgets/my_group.dart';
 import 'package:flutter_hbb/common/widgets/peers_view.dart';
 import 'package:flutter_hbb/common/widgets/peer_card.dart';
 import 'package:flutter_hbb/consts.dart';
+import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
+import 'package:flutter_hbb/desktop/pages/favorites_page.dart';
+import 'package:flutter_hbb/desktop/pages/saved_connections_page.dart';
+import 'package:flutter_hbb/desktop/pages/updates_page.dart';
 import 'package:flutter_hbb/desktop/widgets/popup_menu.dart';
 import 'package:flutter_hbb/desktop/widgets/material_mod_popup_menu.dart'
     as mod_menu;
@@ -37,12 +41,15 @@ class _TabEntry {
   _TabEntry(this.widget, [this.load]);
 }
 
+enum _HomePanelType { peers, favorites, savedConnections, settings, updates }
+
 EdgeInsets? _menuPadding() {
   return (isDesktop || isWebDesktop) ? kDesktopMenuPadding : null;
 }
 
 class _PeerTabPageState extends State<PeerTabPage>
     with SingleTickerProviderStateMixin {
+  _HomePanelType _homePanelType = _HomePanelType.peers;
   final List<_TabEntry> entries = [
     _TabEntry(RecentPeersView(
       menuPadding: _menuPadding(),
@@ -92,6 +99,11 @@ class _PeerTabPageState extends State<PeerTabPage>
     if (tabIndex < entries.length) {
       if (tabIndex != gFFI.peerTabModel.currentTab) {
         gFFI.peerTabModel.setCurrentTabCachedPeers([]);
+      }
+      if (_homePanelType != _HomePanelType.peers) {
+        setState(() {
+          _homePanelType = _HomePanelType.peers;
+        });
       }
       gFFI.peerTabModel.setCurrentTab(tabIndex);
       entries[tabIndex].load?.call(hint: false);
@@ -186,6 +198,20 @@ class _PeerTabPageState extends State<PeerTabPage>
   }
 
   Widget _createPeersView() {
+    if (_homePanelType == _HomePanelType.favorites) {
+      return const FavoritesPage();
+    }
+    if (_homePanelType == _HomePanelType.savedConnections) {
+      return const SavedConnectionsPage();
+    }
+    if (_homePanelType == _HomePanelType.settings) {
+      return DesktopSettingPage(
+        initialTabkey: SettingsTabKey.general,
+      );
+    }
+    if (_homePanelType == _HomePanelType.updates) {
+      return const UpdatesPage();
+    }
     final model = Provider.of<PeerTabModel>(context);
     Widget child;
     if (model.visibleEnabledOrderedIndexs.isEmpty) {
@@ -206,6 +232,64 @@ class _PeerTabPageState extends State<PeerTabPage>
     return Expanded(
         child: child.marginSymmetric(
             vertical: (isDesktop || isWebDesktop) ? 12.0 : 6.0));
+  }
+
+  Widget _panelIcon({
+    required _HomePanelType panel,
+    required IconData icon,
+    required String tooltip,
+  }) {
+    final selected = _homePanelType == panel;
+    final color = selected ? MyTheme.accent : Theme.of(context).iconTheme.color;
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: () {
+          if (_homePanelType != panel) {
+            setState(() {
+              _homePanelType = panel;
+            });
+          }
+        },
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 1),
+          padding: const EdgeInsets.all(4),
+          decoration: selected
+              ? BoxDecoration(
+                  color: Theme.of(context).colorScheme.background,
+                  borderRadius: BorderRadius.circular(6),
+                )
+              : null,
+          child: Icon(icon, size: 18, color: color),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _homePanelActions() {
+    return [
+      _panelIcon(
+        panel: _HomePanelType.favorites,
+        icon: Icons.star_outline,
+        tooltip: translate('Favorites'),
+      ),
+      _panelIcon(
+        panel: _HomePanelType.savedConnections,
+        icon: Icons.folder_open_outlined,
+        tooltip: translate('Saved Connections'),
+      ),
+      _panelIcon(
+        panel: _HomePanelType.settings,
+        icon: Icons.settings_outlined,
+        tooltip: translate('Settings'),
+      ),
+      _panelIcon(
+        panel: _HomePanelType.updates,
+        icon: Icons.system_update_alt_rounded,
+        tooltip: translate('Updates'),
+      ),
+    ];
   }
 
   Widget _createRefresh(
@@ -550,8 +634,12 @@ class _PeerTabPageState extends State<PeerTabPage>
   }
 
   List<Widget> _landscapeRightActions(BuildContext context) {
+    if (_homePanelType != _HomePanelType.peers) {
+      return _homePanelActions();
+    }
     final model = Provider.of<PeerTabModel>(context);
     return [
+      ..._homePanelActions(),
       const PeerSearchBar().marginOnly(right: 13),
       _createRefresh(
           index: PeerTabIndex.ab, loading: gFFI.abModel.currentAbLoading),
@@ -574,6 +662,9 @@ class _PeerTabPageState extends State<PeerTabPage>
   }
 
   List<Widget> _portraitRightActions(BuildContext context) {
+    if (_homePanelType != _HomePanelType.peers) {
+      return _homePanelActions();
+    }
     final model = Provider.of<PeerTabModel>(context);
     final screenWidth = MediaQuery.of(context).size.width;
     final leftIconSize = Theme.of(context).iconTheme.size ?? 24;

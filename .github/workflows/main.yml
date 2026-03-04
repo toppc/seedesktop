@@ -100,10 +100,6 @@ jobs:
             Start-Sleep -Seconds 15
           }
 
-          $targetPath = "$env:VCPKG_ROOT\installed\x64-windows-static"
-          New-Item -ItemType Directory -Force -Path $targetPath
-          Copy-Item -Path ".\vcpkg_installed\x64-windows-static\*" -Destination "$targetPath\" -Recurse -Force
-
       - name: Install FRB codegen
         run: cargo install flutter_rust_bridge_codegen --version 1.80.1 --features uuid --locked
 

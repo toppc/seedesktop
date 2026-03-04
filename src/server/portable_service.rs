@@ -596,13 +596,14 @@ pub mod client {
                 #[cfg(not(feature = "flutter"))]
                 match hbb_common::directories_next::UserDirs::new() {
                     Some(user_dir) => {
+                        let app_name = crate::get_app_name();
                         let dir = user_dir
                             .home_dir()
                             .join("AppData")
                             .join("Local")
-                            .join("rustdesk-sciter");
+                            .join(format!("{app_name}-sciter"));
                         if std::fs::create_dir_all(&dir).is_ok() {
-                            let dst = dir.join("rustdesk.exe");
+                            let dst = dir.join(format!("{app_name}.exe"));
                             if std::fs::copy(&exe, &dst).is_ok() {
                                 if dst.exists() {
                                     if set_path_permission(&dir, "RX").is_ok() {

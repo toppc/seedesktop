@@ -44,6 +44,29 @@ def system2(cmd):
         sys.stderr.write(f"Error occurred when executing: `{cmd}`. Exiting.\n")
         sys.exit(-1)
 
+def apply_custom_branding_windows_icons():
+    branding_dir = Path("custom_branding")
+    if not branding_dir.exists():
+        return
+
+    app_icon = branding_dir / "app_icon.ico"
+    tray_icon = branding_dir / "new_tray.ico"
+
+    if app_icon.exists():
+        Path("flutter/windows/runner/resources").mkdir(parents=True, exist_ok=True)
+        Path("flutter/assets").mkdir(parents=True, exist_ok=True)
+        Path("res").mkdir(parents=True, exist_ok=True)
+        shutil.copy2(app_icon, "flutter/windows/runner/resources/app_icon.ico")
+        shutil.copy2(app_icon, "flutter/assets/icon.ico")
+        shutil.copy2(app_icon, "res/icon.ico")
+
+    if tray_icon.exists():
+        Path("flutter/assets").mkdir(parents=True, exist_ok=True)
+        Path("res").mkdir(parents=True, exist_ok=True)
+        shutil.copy2(tray_icon, "flutter/assets/new_tray.ico")
+        shutil.copy2(tray_icon, "flutter/assets/see-desktop-tray.ico")
+        shutil.copy2(tray_icon, "res/new_tray.ico")
+
 
 def get_version():
     with open("Cargo.toml", encoding="utf-8") as fh:
@@ -487,6 +510,7 @@ def main():
     res_dir = 'resources'
     external_resources(flutter, args, res_dir)
     if windows:
+        apply_custom_branding_windows_icons()
         # build virtual display dynamic library
         os.chdir('libs/virtual_display/dylib')
         system2('cargo build --release')

@@ -19,8 +19,9 @@ static int g_active_window_count = 0;
 // Static variable to hold the custom icon (needs cleanup on exit)
 static HICON g_custom_icon_ = nullptr;
 
-// Try to load icon from data\flutter_assets\assets\icon.ico if it exists.
-// Returns nullptr if the file doesn't exist or can't be loaded.
+// Try to load icon from data\flutter_assets\assets\new_tray.ico first,
+// then fallback to icon.ico.
+// Returns nullptr if files don't exist or can't be loaded.
 HICON LoadCustomIcon() {
   if (g_custom_icon_ != nullptr) {
     return g_custom_icon_;
@@ -30,27 +31,35 @@ HICON LoadCustomIcon() {
     return nullptr;
   }
 
-  std::wstring icon_path = exe_path;
-  size_t last_slash = icon_path.find_last_of(L"\\/");
+  std::wstring base_path = exe_path;
+  size_t last_slash = base_path.find_last_of(L"\\/");
   if (last_slash == std::wstring::npos) {
     return nullptr;
   }
 
-  icon_path = icon_path.substr(0, last_slash + 1);
-  icon_path += L"data\\flutter_assets\\assets\\icon.ico";
+  base_path = base_path.substr(0, last_slash + 1);
+  const std::wstring icon_candidates[] = {
+      base_path + L"data\\flutter_assets\\assets\\new_tray.ico",
+      base_path + L"data\\flutter_assets\\assets\\icon.ico",
+  };
 
-  // Check file attributes - reject if missing, directory, or reparse point (symlink/junction)
-  DWORD file_attr = GetFileAttributesW(icon_path.c_str());
-  if (file_attr == INVALID_FILE_ATTRIBUTES ||
-      (file_attr & FILE_ATTRIBUTE_DIRECTORY) ||
-      (file_attr & FILE_ATTRIBUTE_REPARSE_POINT)) {
-    return nullptr;
+  for (const auto& icon_path : icon_candidates) {
+    // Check file attributes - reject if missing, directory, or reparse point (symlink/junction)
+    DWORD file_attr = GetFileAttributesW(icon_path.c_str());
+    if (file_attr == INVALID_FILE_ATTRIBUTES ||
+        (file_attr & FILE_ATTRIBUTE_DIRECTORY) ||
+        (file_attr & FILE_ATTRIBUTE_REPARSE_POINT)) {
+      continue;
+    }
+
+    g_custom_icon_ = (HICON)LoadImageW(
+        nullptr, icon_path.c_str(), IMAGE_ICON, 0, 0,
+        LR_LOADFROMFILE | LR_DEFAULTSIZE);
+    if (g_custom_icon_ != nullptr) {
+      return g_custom_icon_;
+    }
   }
-
-  g_custom_icon_ = (HICON)LoadImageW(
-      nullptr, icon_path.c_str(), IMAGE_ICON, 0, 0,
-      LR_LOADFROMFILE | LR_DEFAULTSIZE);
-  return g_custom_icon_;
+  return nullptr;
 }
 
 using EnableNonClientDpiScaling = BOOL __stdcall(HWND hwnd);

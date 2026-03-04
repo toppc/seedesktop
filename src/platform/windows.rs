@@ -1882,8 +1882,8 @@ fn get_public_base_dir() -> PathBuf {
 #[inline]
 pub fn get_custom_client_staging_dir() -> PathBuf {
     get_public_base_dir()
-        .join("RustDesk")
-        .join("RustDeskCustomClientStaging")
+        .join("SeeDesktop")
+        .join("SeeDesktopCustomClientStaging")
 }
 
 /// Removes the custom client staging directory.
@@ -1892,7 +1892,7 @@ pub fn get_custom_client_staging_dir() -> PathBuf {
 ///
 /// Rationale
 /// - The staging directory only contains a small `custom.txt`, leaving it is harmless.
-/// - Deleting directories under a public location (e.g., C:\\ProgramData\\RustDesk) is
+/// - Deleting directories under a public location (e.g., C:\\ProgramData\\SeeDesktop) is
 ///   susceptible to TOCTOU attacks if an unprivileged user can replace the path with a
 ///   symlink/junction between checks and deletion.
 ///
@@ -2127,19 +2127,25 @@ unsafe fn set_default_dll_directories() -> bool {
 fn get_custom_icon(exe: &str) -> Option<String> {
     if crate::is_custom_client() {
         if let Some(p) = PathBuf::from(exe).parent() {
-            let alter_icon_path = p.join("data\\flutter_assets\\assets\\icon.ico");
-            if alter_icon_path.exists() {
-                // Verify that the icon is not a symlink for security
-                if let Ok(metadata) = std::fs::symlink_metadata(&alter_icon_path) {
-                    if metadata.is_symlink() {
-                        log::warn!(
-                            "Custom icon at {:?} is a symlink, refusing to use it.",
-                            alter_icon_path
-                        );
-                        return None;
-                    }
-                    if metadata.is_file() {
-                        return Some(alter_icon_path.to_string_lossy().to_string());
+            let icon_candidates = [
+                p.join("data\\flutter_assets\\assets\\new_tray.ico"),
+                p.join("data\\flutter_assets\\assets\\icon.ico"),
+                p.join("data\\flutter_assets\\assets\\see-desktop-tray.ico"),
+            ];
+            for alter_icon_path in icon_candidates {
+                if alter_icon_path.exists() {
+                    // Verify that the icon is not a symlink for security
+                    if let Ok(metadata) = std::fs::symlink_metadata(&alter_icon_path) {
+                        if metadata.is_symlink() {
+                            log::warn!(
+                                "Custom icon at {:?} is a symlink, refusing to use it.",
+                                alter_icon_path
+                            );
+                            continue;
+                        }
+                        if metadata.is_file() {
+                            return Some(alter_icon_path.to_string_lossy().to_string());
+                        }
                     }
                 }
             }

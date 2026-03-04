@@ -202,6 +202,7 @@ const String kOptionShowMobileAction = "showMobileActions";
 const String kUrlActionClose = "close";
 
 const String kTabLabelHomePage = "Home";
+const String kTabLabelFavoritesPage = "Favorites";
 const String kTabLabelSettingPage = "Settings";
 const String kTabLabelSavedConnectionsPage = "Saved Connections";
 

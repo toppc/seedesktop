@@ -37,7 +37,7 @@ fn make_tray() -> hbb_common::ResultType<()> {
     }
     #[cfg(not(target_os = "macos"))]
     {
-        icon = include_bytes!("../res/icon.ico");
+        icon = include_bytes!("../res/new_tray.ico");
     }
 
     let (icon_rgba, icon_width, icon_height) = {
@@ -251,6 +251,7 @@ fn load_icon_from_asset() -> Option<image::DynamicImage> {
     };
     #[cfg(target_os = "macos")]
     let candidates = [
+        path.join("../Frameworks/App.framework/Resources/flutter_assets/assets/new_tray.ico"),
         path.join("../Frameworks/App.framework/Resources/flutter_assets/assets/see-desktop-tray.png"),
         path.join("../Frameworks/App.framework/Resources/flutter_assets/assets/see-desktop-tray.ico"),
         path.join("../Frameworks/App.framework/Resources/flutter_assets/assets/icon.png"),
@@ -258,6 +259,7 @@ fn load_icon_from_asset() -> Option<image::DynamicImage> {
     ];
     #[cfg(windows)]
     let candidates = [
+        path.join(r"data\flutter_assets\assets\new_tray.ico"),
         path.join(r"data\flutter_assets\assets\see-desktop-tray.png"),
         path.join(r"data\flutter_assets\assets\see-desktop-tray.ico"),
         path.join(r"data\flutter_assets\assets\icon.png"),
@@ -265,6 +267,7 @@ fn load_icon_from_asset() -> Option<image::DynamicImage> {
     ];
     #[cfg(target_os = "linux")]
     let candidates = [
+        path.join(r"data/flutter_assets/assets/new_tray.ico"),
         path.join(r"data/flutter_assets/assets/see-desktop-tray.png"),
         path.join(r"data/flutter_assets/assets/see-desktop-tray.ico"),
         path.join(r"data/flutter_assets/assets/icon.png"),

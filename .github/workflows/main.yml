@@ -23,9 +23,17 @@ jobs:
           New-Item -ItemType Directory -Force -Path ".\flutter\windows\runner\resources"
           New-Item -ItemType Directory -Force -Path ".\flutter\assets\images"
           New-Item -ItemType Directory -Force -Path ".\flutter\assets"
+          New-Item -ItemType Directory -Force -Path ".\res"
           
           if (Test-Path ".\custom_branding") {
             Copy-Item -Path ".\custom_branding\app_icon.ico" -Destination ".\flutter\windows\runner\resources\app_icon.ico" -Force
+            Copy-Item -Path ".\custom_branding\app_icon.ico" -Destination ".\flutter\assets\icon.ico" -Force
+            Copy-Item -Path ".\custom_branding\app_icon.ico" -Destination ".\res\icon.ico" -Force
+            if (Test-Path ".\custom_branding\new_tray.ico") {
+              Copy-Item -Path ".\custom_branding\new_tray.ico" -Destination ".\flutter\assets\new_tray.ico" -Force
+              Copy-Item -Path ".\custom_branding\new_tray.ico" -Destination ".\flutter\assets\see-desktop-tray.ico" -Force
+              Copy-Item -Path ".\custom_branding\new_tray.ico" -Destination ".\res\new_tray.ico" -Force
+            }
             Copy-Item -Path ".\custom_branding\logo.png" -Destination ".\flutter\assets\logo.png" -Force
             Copy-Item -Path ".\custom_branding\logo.png" -Destination ".\flutter\assets\images\logo.png" -Force
             Copy-Item -Path ".\custom_branding\rustdesk.png" -Destination ".\flutter\assets\rustdesk.png" -Force

@@ -134,7 +134,7 @@ jobs:
               $buildDir = Split-Path $exeFile.FullName
               Write-Host "Found executable in: $buildDir"
               
-              Rename-Item -Path $exeFile.FullName -NewName "See-Desktop.exe" -Force
+              Rename-Item -Path $exeFile.FullName -NewName "SeeDesktop.exe" -Force
               Move-Item -Path "$buildDir/*" -Destination "$outDir/" -Force
           } else {
               Write-Error "Could not find rustdesk.exe! The build might have failed silently."
@@ -144,5 +144,5 @@ jobs:
       - name: Upload Single Executable
         uses: actions/upload-artifact@v4
         with:
-          name: See-Desktop-Windows-Standalone
+          name: SeeDesktop-Windows-Standalone
           path: dist/

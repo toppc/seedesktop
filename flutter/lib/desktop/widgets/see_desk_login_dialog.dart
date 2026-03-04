@@ -74,7 +74,7 @@ Future<void> showSeeDeskLoginDialog(BuildContext context) async {
           }
 
           return AlertDialog(
-            title: const Text('See-Desktop License Login'),
+            title: const Text('SeeDesktop License Login'),
             content: Form(
               key: formKey,
               child: Column(

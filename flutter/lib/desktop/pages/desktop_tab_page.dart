@@ -18,7 +18,24 @@ class DesktopTabPage extends StatefulWidget {
   @override
   State<DesktopTabPage> createState() => _DesktopTabPageState();
 
-  static void onAddSetting({SettingsTabKey initialPage = SettingsTabKey.general}) {}
+  static void onAddSetting(
+      {SettingsTabKey initialPage = SettingsTabKey.general}) {
+    try {
+      DesktopTabController tabController = Get.find<DesktopTabController>();
+      tabController.add(TabInfo(
+          key: kTabLabelSettingPage,
+          label: kTabLabelSettingPage,
+          selectedIcon: Icons.build_sharp,
+          unselectedIcon: Icons.build_outlined,
+          page: DesktopSettingPage(
+            key: const ValueKey(kTabLabelSettingPage),
+            initialTabkey: initialPage,
+          )));
+      tabController.jumpToByKey(kTabLabelSettingPage);
+    } catch (e) {
+      debugPrintStack(label: '$e');
+    }
+  }
 }
 
 class _DesktopTabPageState extends State<DesktopTabPage> {

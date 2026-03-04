@@ -803,7 +803,7 @@ class _GeneralState extends State<_General> {
 }
 
 // ============================================================================
-// התוספת שלנו ל- See-Desktop - מסך האזור האישי (Account) שקורא ל-SharedPreferences
+// התוספת שלנו ל- SeeDesktop - מסך האזור האישי (Account) שקורא ל-SharedPreferences
 // ============================================================================
 class _Account extends StatefulWidget {
   const _Account({Key? key}) : super(key: key);
@@ -2199,7 +2199,7 @@ class __PrinterState extends State<_Printer> {
                               .copyWith(color: Colors.red))
                       .marginOnly(bottom: 10.0)),
         ),
-        _Button('Install See-Desktop Printer', () {
+        _Button('Install SeeDesktop Printer', () {
           failedMsg.value = '';
           bind.mainSetCommon(key: 'install-printer', value: '');
         })
@@ -2307,7 +2307,7 @@ class _AboutState extends State<_About> {
       final scrollController = ScrollController();
       return SingleChildScrollView(
         controller: scrollController,
-        child: _Card(title: translate('About See-Desktop'), children: [
+        child: _Card(title: translate('About SeeDesktop'), children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

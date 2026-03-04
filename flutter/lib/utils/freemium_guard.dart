@@ -75,7 +75,7 @@ Future<void> showFreeSessionLimitReachedDialog(BuildContext context) async {
         title: const Text('Session limit reached'),
         content: const Text(
           'Free session limit reached (30 minutes). The connection has been closed. '
-          'Please upgrade to See-Desktop Pro for unlimited session time.',
+          'Please upgrade to SeeDesktop Pro for unlimited session time.',
         ),
         actions: [
           TextButton(
@@ -157,12 +157,12 @@ class _FreemiumNagDialogState extends State<_FreemiumNagDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Upgrade to See-Desktop Pro',
+              'Upgrade to SeeDesktop Pro',
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
             const Text(
-              'Upgrade to the yearly See-Desktop Pro subscription for uninterrupted remote access.',
+              'Upgrade to the yearly SeeDesktop Pro subscription for uninterrupted remote access.',
               style: TextStyle(fontSize: 15, color: Colors.black87),
             ),
             const SizedBox(height: 14),
@@ -175,12 +175,55 @@ class _FreemiumNagDialogState extends State<_FreemiumNagDialog> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    r'$120 / Year',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 24,
-                      color: Color(0xFF0A6BFF),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: const [
+                      Text(
+                        r'$120 / Year',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 18,
+                          color: Colors.grey,
+                          decoration: TextDecoration.lineThrough,
+                        ),
+                      ),
+                      SizedBox(width: 10),
+                      Text(
+                        r'$96 / Year',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 28,
+                          color: Color(0xFF0E9F6E),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF7E6),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: const Color(0xFFFFB547),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.local_offer_outlined,
+                            size: 16, color: Color(0xFFCC7A00)),
+                        SizedBox(width: 6),
+                        Text(
+                          'Coupon Code: NW_20%',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFFCC7A00),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 6),

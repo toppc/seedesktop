@@ -8,6 +8,7 @@ import 'package:flutter_hbb/common/widgets/my_group.dart';
 import 'package:flutter_hbb/common/widgets/peers_view.dart';
 import 'package:flutter_hbb/common/widgets/peer_card.dart';
 import 'package:flutter_hbb/consts.dart';
+import 'package:flutter_hbb/desktop/pages/desktop_tab_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
 import 'package:flutter_hbb/desktop/pages/favorites_page.dart';
 import 'package:flutter_hbb/desktop/pages/saved_connections_page.dart';
@@ -245,6 +246,10 @@ class _PeerTabPageState extends State<PeerTabPage>
       message: tooltip,
       child: InkWell(
         onTap: () {
+          if (panel == _HomePanelType.settings) {
+            DesktopTabPage.onAddSetting(initialPage: SettingsTabKey.general);
+            return;
+          }
           if (_homePanelType != panel) {
             setState(() {
               _homePanelType = panel;

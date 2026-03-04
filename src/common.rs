@@ -1008,7 +1008,7 @@ pub async fn do_check_software_update() -> hbb_common::ResultType<()> {
 pub fn get_app_name() -> String {
     let app_name = hbb_common::config::APP_NAME.read().unwrap().clone();
     if app_name == "RustDesk" {
-        "See-Desktop".to_owned()
+        "SeeDesktop".to_owned()
     } else {
         app_name
     }

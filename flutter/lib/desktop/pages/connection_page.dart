@@ -34,7 +34,7 @@ class OnlineStatusWidget extends StatefulWidget {
 /// State for the connection page.
 class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
   final _svcStopped = Get.find<RxBool>(tag: 'stop-service');
-  final _licenseStatusText = 'ללא רישיון'.obs;
+  final _licenseStatusText = 'Unlicensed'.obs;
   Timer? _updateTimer;
 
   double get em => 14.0;
@@ -162,9 +162,9 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
     final maskedLicense = prefs.getString('masked_license');
     final statusText = (savedLicense != null && savedLicense.isNotEmpty)
         ? (maskedLicense != null && maskedLicense.isNotEmpty
-            ? 'רישיון פעיל: $maskedLicense'
-            : 'רישיון פעיל')
-        : 'ללא רישיון';
+            ? 'Licensed: $maskedLicense'
+            : 'Licensed')
+        : 'Unlicensed';
     if (_licenseStatusText.value != statusText) {
       _licenseStatusText.value = statusText;
     }

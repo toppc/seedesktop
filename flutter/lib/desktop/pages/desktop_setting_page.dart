@@ -842,37 +842,11 @@ class _AccountState extends State<_Account> {
   // התנתקות וניתוק הרישיון
   Future<void> _logout() async {
     if (fullLicense != null && fullLicense!.trim().isNotEmpty) {
-      try {
-        final response = await http
-            .post(
-              Uri.parse('http://187.124.13.191/release_connection'),
-              headers: const {'Content-Type': 'application/json'},
-              body: jsonEncode({'license_key': fullLicense}),
-            )
-            .timeout(const Duration(seconds: 8));
-
-        if (response.statusCode >= 400 && mounted) {
-          String message = 'Failed to release connection (${response.statusCode}).';
-          try {
-            final payload = jsonDecode(response.body) as Map<String, dynamic>;
-            message = payload['message']?.toString() ?? message;
-          } catch (_) {}
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(message)),
-          );
-        }
-      } on TimeoutException {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text(kLicenseCommunicationErrorMessage)),
-          );
-        }
-      } catch (_) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text(kLicenseCommunicationErrorMessage)),
-          );
-        }
+      final releaseError = await releaseConnection(fullLicense);
+      if (releaseError != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(releaseError)),
+        );
       }
     }
 

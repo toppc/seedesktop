@@ -23,6 +23,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:get/get_rx/src/rx_workers/utils/debouncer.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uni_links/uni_links.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
@@ -2513,6 +2514,45 @@ connect(BuildContext context, String id,
   if (id == '') return;
   final allowed = await shouldAllowConnectionWithFreemiumGate(context);
   if (!allowed) return;
+  final prefs = await SharedPreferences.getInstance();
+  final savedLicense = prefs.getString('saved_license');
+  if (savedLicense != null && savedLicense.trim().isNotEmpty) {
+    final sessionResult = await startSession(savedLicense);
+    if (!sessionResult.approved) {
+      if (sessionResult.limitReached) {
+        await showDialog<void>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Connection limit reached'),
+            content: const Text(
+              'Connection limit reached. All allowed sessions for your license are currently in use.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      } else if (sessionResult.message.isNotEmpty) {
+        await showDialog<void>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('License error'),
+            content: Text(sessionResult.message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+      return;
+    }
+  }
   if (!isDesktop || desktopType == DesktopType.main) {
     try {
       if (Get.isRegistered<IDTextEditingController>()) {

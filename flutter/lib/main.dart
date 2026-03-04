@@ -520,8 +520,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
     if (_releaseRequested) {
       return;
     }
-    if (state == AppLifecycleState.detached ||
-        state == AppLifecycleState.inactive) {
+    if (state == AppLifecycleState.detached) {
       _releaseRequested = true;
       releaseConnectionFromPrefs();
     }

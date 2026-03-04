@@ -20,6 +20,7 @@ import '../../models/platform_model.dart';
 import '../../common/shared_state.dart';
 import '../../utils/image.dart';
 import '../../utils/freemium_guard.dart';
+import '../../utils/license_manager.dart';
 import '../widgets/remote_toolbar.dart';
 import '../widgets/kb_layout_type_chooser.dart';
 import '../widgets/tabbar_widget.dart';
@@ -336,6 +337,12 @@ class _RemotePageState extends State<RemotePage>
     _ffi.cursorModel.disposeImages();
     _rawKeyFocusNode.dispose();
     await _ffi.close(closeSession: closeSession);
+    if (closeSession) {
+      final releaseError = await releaseConnectionFromPrefs();
+      if (releaseError != null) {
+        debugPrint(releaseError);
+      }
+    }
     _timer?.cancel();
     _freeSessionLimitTimer?.cancel();
     _ffi.dialogManager.dismissAll();

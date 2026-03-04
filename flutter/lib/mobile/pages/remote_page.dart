@@ -23,6 +23,7 @@ import '../../models/input_model.dart';
 import '../../models/model.dart';
 import '../../models/platform_model.dart';
 import '../../utils/freemium_guard.dart';
+import '../../utils/license_manager.dart';
 import '../../utils/image.dart';
 import '../widgets/dialog.dart';
 import '../widgets/custom_scale_widget.dart';
@@ -143,6 +144,10 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
     _mobileFocusNode.dispose();
     _physicalFocusNode.dispose();
     await gFFI.close();
+    final releaseError = await releaseConnectionFromPrefs();
+    if (releaseError != null) {
+      debugPrint(releaseError);
+    }
     _timer?.cancel();
     _freeSessionLimitTimer?.cancel();
     _timerDidChangeMetrics?.cancel();

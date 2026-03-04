@@ -7,8 +7,9 @@ jobs:
   build:
     runs-on: windows-2022
     env:
-      VCPKG_ROOT: C:\vcpkg
+      VCPKG_ROOT: ${{ github.workspace }}\vcpkg
       VCPKG_DEFAULT_TRIPLET: x64-windows-static
+      VCPKG_COMMIT_ID: 120deac3062162151622ca4860575a33844ba10b
 
     steps:
       - uses: actions/checkout@v4
@@ -70,15 +71,35 @@ jobs:
                   with open(f, 'w', encoding='utf-8') as file:
                       file.write(content)
 
-      - name: Setup vcpkg and Build Dependencies
+      - name: Setup vcpkg with GitHub Actions cache
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgDirectory: ${{ github.workspace }}/vcpkg
+          vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
+          doNotCache: false
+
+      - name: Install vcpkg dependencies
         shell: pwsh
         run: |
-          if (Test-Path $env:VCPKG_ROOT) { Remove-Item -Recurse -Force $env:VCPKG_ROOT }
-          git clone https://github.com/microsoft/vcpkg $env:VCPKG_ROOT
-          git -C $env:VCPKG_ROOT checkout 120deac3062162151622ca4860575a33844ba10b
-          & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat"
-          & "$env:VCPKG_ROOT\vcpkg.exe" install --triplet x64-windows-static
-          
+          $vcpkgExe = Join-Path $env:VCPKG_ROOT "vcpkg.exe"
+          if (-not (Test-Path $vcpkgExe)) {
+            Write-Error "vcpkg.exe not found at $vcpkgExe"
+            exit 1
+          }
+
+          # Retry install to tolerate transient network hiccups.
+          $maxRetries = 3
+          for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+            & $vcpkgExe install --triplet x64-windows-static --x-install-root="$env:VCPKG_ROOT\installed"
+            if ($LASTEXITCODE -eq 0) { break }
+            if ($attempt -eq $maxRetries) {
+              Write-Error "vcpkg install failed after $maxRetries attempts."
+              exit $LASTEXITCODE
+            }
+            Write-Host "vcpkg install failed (attempt $attempt). Retrying in 15s..."
+            Start-Sleep -Seconds 15
+          }
+
           $targetPath = "$env:VCPKG_ROOT\installed\x64-windows-static"
           New-Item -ItemType Directory -Force -Path $targetPath
           Copy-Item -Path ".\vcpkg_installed\x64-windows-static\*" -Destination "$targetPath\" -Recurse -Force

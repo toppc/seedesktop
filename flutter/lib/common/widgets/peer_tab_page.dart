@@ -535,6 +535,7 @@ class _PeerTabPageState extends State<PeerTabPage>
             }
           }
           await bind.mainStoreFav(favs: favs);
+          await bind.mainLoadFavPeers();
           model.setMultiSelectionMode(false);
           showToast(translate('Successful'));
         },

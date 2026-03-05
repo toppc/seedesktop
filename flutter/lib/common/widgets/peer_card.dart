@@ -886,6 +886,7 @@ abstract class BasePeerCard extends StatelessWidget {
           if (!favs.contains(id)) {
             favs.add(id);
             await bind.mainStoreFav(favs: favs);
+            await bind.mainLoadFavPeers();
           }
           showToast(translate('Successful'));
         }();

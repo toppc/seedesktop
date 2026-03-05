@@ -912,6 +912,8 @@ class _AccountState extends State<_Account> {
 
   // כשיש רישיון (מחובר)
   Widget _buildLoggedInView() {
+    final displayedActiveConnections =
+        activeSessions.isNotEmpty ? activeSessions.length : activeConnections;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -927,7 +929,7 @@ class _AccountState extends State<_Account> {
               Text("רישיון פעיל: $maskedLicense",
                   style: const TextStyle(fontSize: 16)),
               const SizedBox(height: 8),
-              Text("$activeConnections / $allowedConnections חיבורים במקביל",
+              Text("$displayedActiveConnections / $allowedConnections חיבורים במקביל",
                   style: const TextStyle(fontSize: 16)),
               const SizedBox(height: 14),
               _buildLiveSessionMonitor(),

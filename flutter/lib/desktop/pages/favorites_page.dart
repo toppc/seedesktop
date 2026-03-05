@@ -10,6 +10,7 @@ class FavoritesPage extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
@@ -17,7 +18,8 @@ class FavoritesPage extends StatelessWidget {
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 12),
-          Expanded(
+          Flexible(
+            fit: FlexFit.loose,
             child: FavoritePeersView(
               menuPadding: kDesktopMenuPadding,
             ),

@@ -163,7 +163,7 @@ class _PeerTabPageState extends State<PeerTabPage>
             ?..withOpacity(0.5);
           final hover = false.obs;
           final deco = BoxDecoration(
-              color: Theme.of(context).colorScheme.background,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(6));
           final decoBorder = BoxDecoration(
               border: Border(
@@ -199,19 +199,27 @@ class _PeerTabPageState extends State<PeerTabPage>
   }
 
   Widget _createPeersView() {
-    if (_homePanelType == _HomePanelType.favorites) {
-      return const FavoritesPage();
-    }
-    if (_homePanelType == _HomePanelType.savedConnections) {
-      return const SavedConnectionsPage();
-    }
-    if (_homePanelType == _HomePanelType.settings) {
-      return DesktopSettingPage(
-        initialTabkey: SettingsTabKey.general,
+    Widget wrapPanel(Widget child) {
+      return Expanded(
+        child: child.marginSymmetric(
+          vertical: (isDesktop || isWebDesktop) ? 12.0 : 6.0,
+        ),
       );
     }
+
+    if (_homePanelType == _HomePanelType.favorites) {
+      return wrapPanel(const FavoritesPage());
+    }
+    if (_homePanelType == _HomePanelType.savedConnections) {
+      return wrapPanel(const SavedConnectionsPage());
+    }
+    if (_homePanelType == _HomePanelType.settings) {
+      return wrapPanel(DesktopSettingPage(
+        initialTabkey: SettingsTabKey.general,
+      ));
+    }
     if (_homePanelType == _HomePanelType.updates) {
-      return const UpdatesPage();
+      return wrapPanel(const UpdatesPage());
     }
     final model = Provider.of<PeerTabModel>(context);
     Widget child;
@@ -230,9 +238,7 @@ class _PeerTabPageState extends State<PeerTabPage>
         child = entries[0].widget;
       }
     }
-    return Expanded(
-        child: child.marginSymmetric(
-            vertical: (isDesktop || isWebDesktop) ? 12.0 : 6.0));
+    return wrapPanel(child);
   }
 
   Widget _panelIcon({
@@ -262,7 +268,7 @@ class _PeerTabPageState extends State<PeerTabPage>
           padding: const EdgeInsets.all(4),
           decoration: selected
               ? BoxDecoration(
-                  color: Theme.of(context).colorScheme.background,
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(6),
                 )
               : null,
@@ -794,7 +800,7 @@ class _PeerSearchBarState extends State<PeerSearchBar> {
     return Obx(() => Container(
           width: stateGlobal.isPortrait.isTrue ? 120 : 140,
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.background,
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(6),
           ),
           child: Row(
@@ -1063,7 +1069,7 @@ class RefreshWidgetState extends State<RefreshWidget> {
   @override
   Widget build(BuildContext context) {
     final deco = BoxDecoration(
-      color: Theme.of(context).colorScheme.background,
+      color: Theme.of(context).colorScheme.surface,
       borderRadius: BorderRadius.circular(6),
     );
     return AnimatedRotation(
@@ -1105,7 +1111,7 @@ Widget _hoverAction(
     EdgeInsetsGeometry padding = const EdgeInsets.all(4.0)}) {
   final hover = false.obs;
   final deco = BoxDecoration(
-    color: Theme.of(context).colorScheme.background,
+    color: Theme.of(context).colorScheme.surface,
     borderRadius: BorderRadius.circular(6),
   );
   return Tooltip(

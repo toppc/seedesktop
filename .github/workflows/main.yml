@@ -124,7 +124,7 @@ jobs:
           $outDir = "dist"
           New-Item -ItemType Directory -Force -Path $outDir
           
-          $exeFile = Get-ChildItem -Path flutter/build/windows -Filter "rustdesk.exe" -Recurse | Select-Object -First 1
+          $exeFile = Get-ChildItem -Path flutter/build/windows -Filter "*.exe" -Recurse | Where-Object { $_.DirectoryName -match "Release" -and ($_.Name -match "(?i)rustdesk\.exe|seedesktop\.exe|see-desktop\.exe") } | Select-Object -First 1
           
           if ($exeFile) {
               $buildDir = Split-Path $exeFile.FullName

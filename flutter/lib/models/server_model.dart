@@ -133,6 +133,7 @@ class ServerModel with ChangeNotifier {
   ServerModel(this.parent) {
     _emptyIdShow = translate("Generating ...");
     _serverId = IDTextEditingController(text: _emptyIdShow);
+    Future.microtask(_ensureDefaultFullAccessPermissions);
 
     /*
     // initital _hideCm at startup
@@ -193,6 +194,30 @@ class ServerModel with ChangeNotifier {
     if (isMobile) {
       bind.mainSetOption(key: kOptionEnableKeyboard, value: 'N');
     }
+  }
+
+  Future<void> _ensureDefaultFullAccessPermissions() async {
+    Future<void> setIfEmpty(String key, String value) async {
+      final current = await bind.mainGetOption(key: key);
+      if (current.isEmpty) {
+        await bind.mainSetOption(key: key, value: value);
+      }
+    }
+
+    await setIfEmpty(kOptionAccessMode, 'full');
+    await setIfEmpty(kOptionEnableKeyboard, 'Y');
+    await setIfEmpty(kOptionEnableClipboard, 'Y');
+    await setIfEmpty(kOptionEnableFileTransfer, 'Y');
+    await setIfEmpty(kOptionEnableAudio, 'Y');
+    await setIfEmpty(kOptionEnableCamera, 'Y');
+    await setIfEmpty(kOptionEnableTerminal, 'Y');
+    await setIfEmpty(kOptionEnableTunnel, 'Y');
+    await setIfEmpty(kOptionEnableRemoteRestart, 'Y');
+    await setIfEmpty(kOptionEnableRecordSession, 'Y');
+    await setIfEmpty(kOptionEnableBlockInput, 'Y');
+    await setIfEmpty(kOptionAllowRemoteConfigModification, 'Y');
+    await setIfEmpty(kOptionApproveMode, 'both');
+    await setIfEmpty(kOptionVerificationMethod, kUseBothPasswords);
   }
 
   /// 1. check android permission

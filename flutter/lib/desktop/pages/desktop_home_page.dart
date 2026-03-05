@@ -94,16 +94,13 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       if (!isOutgoingOnly) buildIDBoard(context),
       if (!isOutgoingOnly) buildPasswordBoard(context),
       FutureBuilder<Widget>(
-        future: Future.value(
-            Obx(() => buildHelpCards(stateGlobal.updateUrl.value))),
+        future: Future.value(Obx(() => buildHelpCards(stateGlobal.updateUrl.value))),
         builder: (_, data) {
           if (data.hasData) {
-            if (isIncomingOnly) {
-              if (isInHomePage()) {
-                Future.delayed(Duration(milliseconds: 300), () {
-                  _updateWindowSize();
-                });
-              }
+            if (isIncomingOnly && isInHomePage()) {
+              Future.delayed(Duration(milliseconds: 300), () {
+                _updateWindowSize();
+              });
             }
             return data.data!;
           } else {
@@ -132,19 +129,20 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       value: gFFI.serverModel,
       child: Container(
         width: isIncomingOnly ? 280.0 : 200.0,
-        color: Theme.of(context).colorScheme.background,
+        color: Theme.of(context).colorScheme.surface,
         child: Stack(
           children: [
             Column(
               children: [
-                SingleChildScrollView(
-                  controller: _leftPaneScrollController,
-                  child: Column(
-                    key: _childKey,
-                    children: children,
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: _leftPaneScrollController,
+                    child: Column(
+                      key: _childKey,
+                      children: children,
+                    ),
                   ),
                 ),
-                Expanded(child: Container())
               ],
             ),
             if (isOutgoingOnly)
@@ -236,12 +234,33 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                       child: TextFormField(
                         controller: model.serverId,
                         readOnly: true,
+                        textAlign: TextAlign.center,
+                        textAlignVertical: TextAlignVertical.center,
+                        strutStyle:
+                            const StrutStyle(height: 1.0, forceStrutHeight: true),
                         decoration: InputDecoration(
                           border: InputBorder.none,
-                          contentPadding: EdgeInsets.only(top: 10, bottom: 10),
+                          filled: true,
+                          fillColor: MyTheme.button,
+                          isDense: false,
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(6),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(6),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 12,
+                          ),
                         ),
                         style: TextStyle(
-                          fontSize: 22,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          height: 1.0,
                         ),
                       ).workaroundFreezeLinuxMint(),
                     ),
@@ -267,7 +286,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
             radius: 15,
             backgroundColor: hover.value
                 ? Theme.of(context).scaffoldBackgroundColor
-                : Theme.of(context).colorScheme.background,
+                : Theme.of(context).colorScheme.surface,
             child: Icon(
               Icons.more_vert_outlined,
               size: 20,
@@ -433,11 +452,13 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     if (!bind.isCustomClient() &&
         updateUrl.isNotEmpty &&
         !isCardClosed &&
-        bind.mainUriPrefixSync().contains('seedesktop')) { // Changed to seedesktop
+        bind.mainUriPrefixSync().contains('seedesktop')) {
+      // Changed to seedesktop
       final isToUpdate = (isWindows || isMacOS) && bind.mainIsInstalled();
       String btnText = isToUpdate ? 'Update' : 'Download';
       GestureTapCallback onPressed = () async {
-        final Uri url = Uri.parse('https://seedesktop.com'); // Redirected to your site
+        final Uri url =
+            Uri.parse('https://seedesktop.com'); // Redirected to your site
         await launchUrl(url);
       };
       if (isToUpdate) {
@@ -483,19 +504,25 @@ class _DesktopHomePageState extends State<DesktopHomePage>
             () async {
           bind.mainIsCanScreenRecording(prompt: true);
           watchIsCanScreenRecording = true;
-        }, help: 'Help', link: 'https://seedesktop.com'); // Redirected to your site
+        },
+            help: 'Help',
+            link: 'https://seedesktop.com'); // Redirected to your site
       } else if (!isOutgoingOnly && !bind.mainIsProcessTrusted(prompt: false)) {
         return buildInstallCard("Permissions", "config_acc", "Configure",
             () async {
           bind.mainIsProcessTrusted(prompt: true);
           watchIsProcessTrust = true;
-        }, help: 'Help', link: 'https://seedesktop.com'); // Redirected to your site
+        },
+            help: 'Help',
+            link: 'https://seedesktop.com'); // Redirected to your site
       } else if (!bind.mainIsCanInputMonitoring(prompt: false)) {
         return buildInstallCard("Permissions", "config_input", "Configure",
             () async {
           bind.mainIsCanInputMonitoring(prompt: true);
           watchIsInputMonitoring = true;
-        }, help: 'Help', link: 'https://seedesktop.com'); // Redirected to your site
+        },
+            help: 'Help',
+            link: 'https://seedesktop.com'); // Redirected to your site
       } else if (!isOutgoingOnly &&
           !svcStopped.value &&
           bind.mainIsInstalled() &&
@@ -520,8 +547,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
             () async {},
             marginTop: LinuxCards.isEmpty ? 20.0 : 5.0,
             help: 'Help',
-            link:
-                'https://seedesktop.com', // Redirected to your site
+            link: 'https://seedesktop.com', // Redirected to your site
             closeButton: true,
             closeOption: keyShowSelinuxHelpTip,
           ));
@@ -634,10 +660,11 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                                     FixedWidthButton(
                                       width: 150,
                                       padding: 8,
-                                      isOutline: true,
+                                      isOutline: false,
                                       text: translate(btnText),
                                       textColor: Colors.white,
-                                      borderColor: Colors.white,
+                                      borderColor: MyTheme.button,
+                                      backgroundColor: MyTheme.button,
                                       textSize: 20,
                                       radius: 10,
                                       onTap: onPressed,
@@ -752,7 +779,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
 
     bool isChattyMethod(String methodName) {
       switch (methodName) {
-        case kWindowBumpMouse: return true;
+        case kWindowBumpMouse:
+          return true;
       }
 
       return false;
@@ -761,7 +789,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     rustDeskWinManager.setMethodHandler((call, fromWindowId) async {
       if (!isChattyMethod(call.method)) {
         debugPrint(
-          "[Main] call ${call.method} with args ${call.arguments} from window $fromWindowId");
+            "[Main] call ${call.method} with args ${call.arguments} from window $fromWindowId");
       }
       if (call.method == kWindowMainWindowOnTop) {
         windowOnTop(null);
@@ -796,9 +824,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           connToken: call.arguments['connToken'],
         );
       } else if (call.method == kWindowBumpMouse) {
-        return RdPlatformChannel.instance.bumpMouse(
-          dx: call.arguments['dx'],
-          dy: call.arguments['dy']);
+        return RdPlatformChannel.instance
+            .bumpMouse(dx: call.arguments['dx'], dy: call.arguments['dy']);
       } else if (call.method == kWindowEventMoveTabToNewWindow) {
         final args = call.arguments.split(',');
         int? windowId;

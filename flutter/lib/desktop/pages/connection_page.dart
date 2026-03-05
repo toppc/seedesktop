@@ -330,7 +330,7 @@ class _ConnectionPageState extends State<ConnectionPage>
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
       decoration: BoxDecoration(
           borderRadius: const BorderRadius.all(Radius.circular(13)),
-          border: Border.all(color: Theme.of(context).colorScheme.background)),
+          border: Border.all(color: Theme.of(context).colorScheme.surface)),
       child: Ink(
         child: Column(
           children: [
@@ -502,6 +502,10 @@ class _ConnectionPageState extends State<ConnectionPage>
                 SizedBox(
                   height: 28.0,
                   child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: MyTheme.button,
+                      foregroundColor: Colors.white,
+                    ),
                     onPressed: () {
                       onConnect();
                     },

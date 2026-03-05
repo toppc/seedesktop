@@ -33,7 +33,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Insert Lock", "Insert lock"),
         ("Set Password", "Set password"),
         ("OS Password", "OS password"),
-        ("install_tip", "Due to UAC, SeeDesktop can not work properly as the remote side in some cases. To avoid UAC, please click the button below to install SeeDesktop to the system."),
+        ("install_tip", "To enable remote access with a permanent password and ensure full system compatibility, please install SeeDesktop on this computer."),
         ("config_acc", "In order to control your Desktop remotely, you need to grant SeeDesktop \"Accessibility\" permissions."),
         ("config_screen", "In order to access your Desktop remotely, you need to grant SeeDesktop \"Screen Recording\" permissions."),
         ("Installation Path", "Installation path"),

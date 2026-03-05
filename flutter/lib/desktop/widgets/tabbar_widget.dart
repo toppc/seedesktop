@@ -636,7 +636,7 @@ class _DesktopTabState extends State<DesktopTab>
                         Offstage(
                           offstage: !showLogo,
                           child: Image(
-                            image: const AssetImage('assets/logo.png'),
+                            image: const AssetImage('assets/see-desktop-tray.png'),
                             width: 16,
                             height: 16,
                             fit: BoxFit.contain,

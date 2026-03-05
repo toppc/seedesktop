@@ -14,6 +14,7 @@ class Button extends StatefulWidget {
   final Color? textColor;
   final double? radius;
   final Color? borderColor;
+  final Color? backgroundColor;
 
   Button({
     Key? key,
@@ -24,6 +25,7 @@ class Button extends StatefulWidget {
     this.textColor,
     this.radius,
     this.borderColor,
+    this.backgroundColor,
     required this.onTap,
     required this.text,
   }) : super(key: key);
@@ -38,6 +40,7 @@ class _ButtonState extends State<Button> {
 
   @override
   Widget build(BuildContext context) {
+    final baseColor = widget.backgroundColor ?? MyTheme.button;
     return Obx(() => InkWell(
           onTapDown: (_) => pressed.value = true,
           onTapUp: (_) => pressed.value = false,
@@ -56,7 +59,7 @@ class _ButtonState extends State<Button> {
                       ? MyTheme.accent
                       : (widget.isOutline
                           ? Colors.transparent
-                          : MyTheme.button),
+                          : baseColor),
                   border: Border.all(
                     color: pressed.value
                         ? MyTheme.accent
@@ -64,7 +67,7 @@ class _ButtonState extends State<Button> {
                             ? MyTheme.hoverBorder
                             : (widget.isOutline
                                 ? widget.borderColor ?? MyTheme.border
-                                : MyTheme.button),
+                                : baseColor),
                   ),
                   borderRadius: BorderRadius.circular(widget.radius ?? 5),
                 ),
@@ -95,6 +98,7 @@ class FixedWidthButton extends StatefulWidget {
   final double? radius;
   final Color? borderColor;
   final int? maxLines;
+  final Color? backgroundColor;
 
   FixedWidthButton({
     Key? key,
@@ -106,6 +110,7 @@ class FixedWidthButton extends StatefulWidget {
     this.textColor,
     this.radius,
     this.borderColor,
+    this.backgroundColor,
     required this.onTap,
     required this.text,
   }) : super(key: key);
@@ -120,6 +125,7 @@ class _FixedWidthButtonState extends State<FixedWidthButton> {
 
   @override
   Widget build(BuildContext context) {
+    final baseColor = widget.backgroundColor ?? MyTheme.button;
     return Obx(() => InkWell(
           onTapDown: (_) => pressed.value = true,
           onTapUp: (_) => pressed.value = false,
@@ -133,7 +139,7 @@ class _FixedWidthButtonState extends State<FixedWidthButton> {
             decoration: BoxDecoration(
               color: pressed.value
                   ? MyTheme.accent
-                  : (widget.isOutline ? Colors.transparent : MyTheme.button),
+                  : (widget.isOutline ? Colors.transparent : baseColor),
               border: Border.all(
                 color: pressed.value
                     ? MyTheme.accent
@@ -141,7 +147,7 @@ class _FixedWidthButtonState extends State<FixedWidthButton> {
                         ? MyTheme.hoverBorder
                         : (widget.isOutline
                             ? widget.borderColor ?? MyTheme.border
-                            : MyTheme.button),
+                            : baseColor),
               ),
               borderRadius: BorderRadius.circular(widget.radius ?? 5),
             ),

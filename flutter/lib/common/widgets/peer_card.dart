@@ -14,6 +14,7 @@ import '../../models/peer_model.dart';
 import '../../models/platform_model.dart';
 import '../../desktop/widgets/material_mod_popup_menu.dart' as mod_menu;
 import '../../desktop/widgets/popup_menu.dart';
+import '../../utils/favorite_groups.dart';
 import 'dart:math' as math;
 
 typedef PopupMenuEntryBuilder = Future<List<mod_menu.PopupMenuEntry<String>>>
@@ -171,7 +172,7 @@ class _PeerCardState extends State<_PeerCard>
         Expanded(
           child: Container(
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.background,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.only(
                 topRight: Radius.circular(_tileRadius),
                 bottomRight: Radius.circular(_tileRadius),
@@ -359,7 +360,7 @@ class _PeerCardState extends State<_PeerCard>
                   ),
                 ),
                 Container(
-                  color: Theme.of(context).colorScheme.background,
+                  color: Theme.of(context).colorScheme.surface,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -764,15 +765,35 @@ abstract class BasePeerCard extends StatelessWidget {
         renameDialog(
             oldName: oldName,
             onSubmit: (String newName) async {
-              if (newName != oldName) {
+              final normalizedName = newName.trim();
+              if (normalizedName.isEmpty) {
+                showToast(translate('Name can not be empty'));
+                return;
+              }
+              if (normalizedName != oldName) {
                 if (tab == PeerTabIndex.ab) {
-                  await gFFI.abModel.changeAlias(id: id, alias: newName);
-                  await bind.mainSetPeerAlias(id: id, alias: newName);
+                  await gFFI.abModel.changeAlias(id: id, alias: normalizedName);
+                } else {}
+                // Keep alias persistence explicit and force-refresh all related lists
+                // so renamed peers are visible immediately in Favorites/Recent/LAN.
+                await bind.mainSetPeerOption(
+                    id: id, key: 'alias', value: normalizedName);
+                await bind.mainSetPeerAlias(id: id, alias: normalizedName);
+                final savedAlias =
+                    await bind.mainGetPeerOption(id: id, key: 'alias');
+                if (savedAlias != normalizedName) {
+                  showToast(translate('Failed to save alias'));
+                  return;
+                }
+                await bind.mainLoadRecentPeers();
+                await bind.mainLoadFavPeers();
+                await bind.mainLoadLanPeers();
+                if (tab == PeerTabIndex.ab) {
+                  gFFI.abModel.currentAbPeers.refresh();
                 } else {
-                  await bind.mainSetPeerAlias(id: id, alias: newName);
-                  showToast(translate('Successful'));
                   _update();
                 }
+                showToast(translate('Successful'));
               }
             });
       },
@@ -811,6 +832,7 @@ abstract class BasePeerCard extends StatelessWidget {
               final favs = (await bind.mainGetFav()).toList();
               if (favs.remove(id)) {
                 await bind.mainStoreFav(favs: favs);
+                await FavoriteGroupsStore.removePeer(id);
                 bind.mainLoadFavPeers();
               }
               break;
@@ -862,7 +884,7 @@ abstract class BasePeerCard extends StatelessWidget {
   }
 
   @protected
-  MenuEntryBase<String> _addFavAction(String id) {
+  MenuEntryBase<String> _addFavAction(BuildContext context, String id) {
     return MenuEntryButton<String>(
       childBuilder: (TextStyle? style) => Row(
         children: [
@@ -882,12 +904,19 @@ abstract class BasePeerCard extends StatelessWidget {
       ),
       proc: () {
         () async {
+          final selectedGroup = await showFavoriteGroupDialog(
+            context,
+            title: 'Add to Favorites',
+            confirmLabel: 'Add',
+          );
+          if (selectedGroup == null) return;
           final favs = (await bind.mainGetFav()).toList();
           if (!favs.contains(id)) {
             favs.add(id);
             await bind.mainStoreFav(favs: favs);
-            await bind.mainLoadFavPeers();
           }
+          await FavoriteGroupsStore.assignPeerToGroup(id, selectedGroup);
+          await bind.mainLoadFavPeers();
           showToast(translate('Successful'));
         }();
       },
@@ -921,6 +950,7 @@ abstract class BasePeerCard extends StatelessWidget {
           final favs = (await bind.mainGetFav()).toList();
           if (favs.remove(id)) {
             await bind.mainStoreFav(favs: favs);
+            await FavoriteGroupsStore.removePeer(id);
             await reloadFunc();
           }
           showToast(translate('Successful'));
@@ -949,6 +979,45 @@ abstract class BasePeerCard extends StatelessWidget {
   }
 
   @protected
+  MenuEntryBase<String> _editFavGroupAction(BuildContext context, String id) {
+    return MenuEntryButton<String>(
+      childBuilder: (TextStyle? style) => Row(
+        children: [
+          Text(
+            'Edit Favorites Group',
+            style: style,
+          ),
+          Expanded(
+              child: Align(
+            alignment: Alignment.centerRight,
+            child: Transform.scale(
+              scale: 0.8,
+              child: const Icon(Icons.edit_outlined),
+            ),
+          ).marginOnly(right: 4)),
+        ],
+      ),
+      proc: () {
+        () async {
+          final groups = await FavoriteGroupsStore.loadPeerGroups();
+          final selectedGroup = await showFavoriteGroupDialog(
+            context,
+            title: 'Edit Favorites Group',
+            initialGroup: groups[id] ?? kDefaultFavoriteGroup,
+            confirmLabel: 'Save',
+          );
+          if (selectedGroup == null) return;
+          await FavoriteGroupsStore.assignPeerToGroup(id, selectedGroup);
+          await bind.mainLoadFavPeers();
+          showToast(translate('Successful'));
+        }();
+      },
+      padding: menuPadding,
+      dismissOnClicked: true,
+    );
+  }
+
+  @protected
   Future<String> _getAlias(String id) async =>
       await bind.mainGetPeerOption(id: id, key: 'alias');
 
@@ -967,51 +1036,25 @@ class RecentPeerCard extends BasePeerCard {
   @override
   Future<List<MenuEntryBase<String>>> _buildMenuItems(
       BuildContext context) async {
+    final List favs = (await bind.mainGetFav()).toList();
     final List<MenuEntryBase<String>> menuItems = [
       _connectAction(context),
       _transferFileAction(context),
-      _viewCameraAction(context),
-      _terminalAction(context),
+      MenuEntryDivider(),
     ];
 
-    if (peer.platform == kPeerPlatformWindows) {
-      menuItems.add(_terminalRunAsAdminAction(context));
-    }
-
-    final List favs = (await bind.mainGetFav()).toList();
-
-    if (isDesktop && peer.platform != kPeerPlatformAndroid) {
-      menuItems.add(_tcpTunnelingAction(context));
-    }
-    // menuItems.add(await _openNewConnInOptAction(peer.id));
-    if (!isWeb) {
-      menuItems.add(await _forceAlwaysRelayAction(peer.id));
-    }
-    if (isWindows && peer.platform == kPeerPlatformWindows) {
-      menuItems.add(_rdpAction(context, peer.id));
-    }
     if (isWindows) {
       menuItems.add(_createShortCutAction(peer.id));
     }
-    menuItems.add(MenuEntryDivider());
     if (isMobile || isDesktop || isWebDesktop) {
       menuItems.add(_renameAction(peer.id));
     }
-    if (await bind.mainPeerHasPassword(id: peer.id)) {
-      menuItems.add(_unrememberPasswordAction(peer.id));
-    }
 
     if (!favs.contains(peer.id)) {
-      menuItems.add(_addFavAction(peer.id));
+      menuItems.add(_addFavAction(context, peer.id));
     } else {
       menuItems.add(_rmFavAction(peer.id, () async {}));
     }
-
-    if (gFFI.userModel.userName.isNotEmpty) {
-      menuItems.add(_addToAb(peer));
-    }
-
-    menuItems.add(MenuEntryDivider());
     menuItems.add(_removeAction(peer.id));
     return menuItems;
   }
@@ -1032,46 +1075,27 @@ class FavoritePeerCard extends BasePeerCard {
   @override
   Future<List<MenuEntryBase<String>>> _buildMenuItems(
       BuildContext context) async {
+    final List favs = (await bind.mainGetFav()).toList();
     final List<MenuEntryBase<String>> menuItems = [
       _connectAction(context),
       _transferFileAction(context),
-      _viewCameraAction(context),
-      _terminalAction(context),
+      MenuEntryDivider(),
     ];
 
-    if (peer.platform == kPeerPlatformWindows) {
-      menuItems.add(_terminalRunAsAdminAction(context));
-    }
-
-    if (isDesktop && peer.platform != kPeerPlatformAndroid) {
-      menuItems.add(_tcpTunnelingAction(context));
-    }
-    // menuItems.add(await _openNewConnInOptAction(peer.id));
-    if (!isWeb) {
-      menuItems.add(await _forceAlwaysRelayAction(peer.id));
-    }
-    if (isWindows && peer.platform == kPeerPlatformWindows) {
-      menuItems.add(_rdpAction(context, peer.id));
-    }
     if (isWindows) {
       menuItems.add(_createShortCutAction(peer.id));
     }
-    menuItems.add(MenuEntryDivider());
     if (isMobile || isDesktop || isWebDesktop) {
       menuItems.add(_renameAction(peer.id));
     }
-    if (await bind.mainPeerHasPassword(id: peer.id)) {
-      menuItems.add(_unrememberPasswordAction(peer.id));
+    menuItems.add(_editFavGroupAction(context, peer.id));
+    if (!favs.contains(peer.id)) {
+      menuItems.add(_addFavAction(context, peer.id));
+    } else {
+      menuItems.add(_rmFavAction(peer.id, () async {
+        await bind.mainLoadFavPeers();
+      }));
     }
-    menuItems.add(_rmFavAction(peer.id, () async {
-      await bind.mainLoadFavPeers();
-    }));
-
-    if (gFFI.userModel.userName.isNotEmpty) {
-      menuItems.add(_addToAb(peer));
-    }
-
-    menuItems.add(MenuEntryDivider());
     menuItems.add(_removeAction(peer.id));
     return menuItems;
   }
@@ -1092,45 +1116,25 @@ class DiscoveredPeerCard extends BasePeerCard {
   @override
   Future<List<MenuEntryBase<String>>> _buildMenuItems(
       BuildContext context) async {
+    final List favs = (await bind.mainGetFav()).toList();
     final List<MenuEntryBase<String>> menuItems = [
       _connectAction(context),
       _transferFileAction(context),
-      _viewCameraAction(context),
-      _terminalAction(context),
+      MenuEntryDivider(),
     ];
 
-    if (peer.platform == kPeerPlatformWindows) {
-      menuItems.add(_terminalRunAsAdminAction(context));
-    }
-
-    final List favs = (await bind.mainGetFav()).toList();
-
-    if (isDesktop && peer.platform != kPeerPlatformAndroid) {
-      menuItems.add(_tcpTunnelingAction(context));
-    }
-    // menuItems.add(await _openNewConnInOptAction(peer.id));
-    if (!isWeb) {
-      menuItems.add(await _forceAlwaysRelayAction(peer.id));
-    }
-    if (isWindows && peer.platform == kPeerPlatformWindows) {
-      menuItems.add(_rdpAction(context, peer.id));
-    }
-    menuItems.add(_wolAction(peer.id));
     if (isWindows) {
       menuItems.add(_createShortCutAction(peer.id));
     }
 
+    if (isMobile || isDesktop || isWebDesktop) {
+      menuItems.add(_renameAction(peer.id));
+    }
     if (!favs.contains(peer.id)) {
-      menuItems.add(_addFavAction(peer.id));
+      menuItems.add(_addFavAction(context, peer.id));
     } else {
       menuItems.add(_rmFavAction(peer.id, () async {}));
     }
-
-    if (gFFI.userModel.userName.isNotEmpty) {
-      menuItems.add(_addToAb(peer));
-    }
-
-    menuItems.add(MenuEntryDivider());
     menuItems.add(_removeAction(peer.id));
     return menuItems;
   }
@@ -1151,58 +1155,25 @@ class AddressBookPeerCard extends BasePeerCard {
   @override
   Future<List<MenuEntryBase<String>>> _buildMenuItems(
       BuildContext context) async {
+    final List favs = (await bind.mainGetFav()).toList();
     final List<MenuEntryBase<String>> menuItems = [
       _connectAction(context),
       _transferFileAction(context),
-      _viewCameraAction(context),
-      _terminalAction(context),
+      MenuEntryDivider(),
     ];
 
-    if (peer.platform == kPeerPlatformWindows) {
-      menuItems.add(_terminalRunAsAdminAction(context));
-    }
-
-    if (isDesktop && peer.platform != kPeerPlatformAndroid) {
-      menuItems.add(_tcpTunnelingAction(context));
-    }
-    // menuItems.add(await _openNewConnInOptAction(peer.id));
-    if (!isWeb) {
-      menuItems.add(await _forceAlwaysRelayAction(peer.id));
-    }
-    if (isWindows && peer.platform == kPeerPlatformWindows) {
-      menuItems.add(_rdpAction(context, peer.id));
-    }
     if (isWindows) {
       menuItems.add(_createShortCutAction(peer.id));
     }
-    if (gFFI.abModel.current.canWrite()) {
-      menuItems.add(MenuEntryDivider());
-      if (isMobile || isDesktop || isWebDesktop) {
-        menuItems.add(_renameAction(peer.id));
-      }
-      if (gFFI.abModel.current.isPersonal() && peer.hash.isNotEmpty) {
-        menuItems.add(_unrememberPasswordAction(peer.id));
-      }
-      if (!gFFI.abModel.current.isPersonal()) {
-        menuItems.add(_changeSharedAbPassword());
-      }
-      if (gFFI.abModel.currentAbTags.isNotEmpty) {
-        menuItems.add(_editTagAction(peer.id));
-      }
-      menuItems.add(_editNoteAction(peer.id));
+    if (isMobile || isDesktop || isWebDesktop) {
+      menuItems.add(_renameAction(peer.id));
     }
-    final addressbooks = gFFI.abModel.addressBooksCanWrite();
-    if (gFFI.peerTabModel.currentTab == PeerTabIndex.ab.index) {
-      addressbooks.remove(gFFI.abModel.currentName.value);
+    if (!favs.contains(peer.id)) {
+      menuItems.add(_addFavAction(context, peer.id));
+    } else {
+      menuItems.add(_rmFavAction(peer.id, () async {}));
     }
-    if (addressbooks.isNotEmpty) {
-      menuItems.add(_addToAb(peer));
-    }
-    menuItems.add(_existIn());
-    if (gFFI.abModel.current.canWrite()) {
-      menuItems.add(MenuEntryDivider());
-      menuItems.add(_removeAction(peer.id));
-    }
+    menuItems.add(_removeAction(peer.id));
     return menuItems;
   }
 
@@ -1308,38 +1279,25 @@ class MyGroupPeerCard extends BasePeerCard {
   @override
   Future<List<MenuEntryBase<String>>> _buildMenuItems(
       BuildContext context) async {
+    final List favs = (await bind.mainGetFav()).toList();
     final List<MenuEntryBase<String>> menuItems = [
       _connectAction(context),
       _transferFileAction(context),
-      _viewCameraAction(context),
-      _terminalAction(context),
+      MenuEntryDivider(),
     ];
 
-    if (peer.platform == kPeerPlatformWindows) {
-      menuItems.add(_terminalRunAsAdminAction(context));
-    }
-
-    if (isDesktop && peer.platform != kPeerPlatformAndroid) {
-      menuItems.add(_tcpTunnelingAction(context));
-    }
-    // menuItems.add(await _openNewConnInOptAction(peer.id));
-    if (!isWeb) {
-      menuItems.add(await _forceAlwaysRelayAction(peer.id));
-    }
-    if (isWindows && peer.platform == kPeerPlatformWindows) {
-      menuItems.add(_rdpAction(context, peer.id));
-    }
     if (isWindows) {
       menuItems.add(_createShortCutAction(peer.id));
     }
-    // menuItems.add(MenuEntryDivider());
-    // menuItems.add(_renameAction(peer.id));
-    // if (await bind.mainPeerHasPassword(id: peer.id)) {
-    //   menuItems.add(_unrememberPasswordAction(peer.id));
-    // }
-    if (gFFI.userModel.userName.isNotEmpty) {
-      menuItems.add(_addToAb(peer));
+    if (isMobile || isDesktop || isWebDesktop) {
+      menuItems.add(_renameAction(peer.id));
     }
+    if (!favs.contains(peer.id)) {
+      menuItems.add(_addFavAction(context, peer.id));
+    } else {
+      menuItems.add(_rmFavAction(peer.id, () async {}));
+    }
+    menuItems.add(_removeAction(peer.id));
     return menuItems;
   }
 
@@ -1485,11 +1443,11 @@ Widget build_more(BuildContext context, {bool invert = false}) {
           radius: 14,
           backgroundColor: hover.value
               ? (invert
-                  ? Theme.of(context).colorScheme.background
+                  ? Theme.of(context).colorScheme.surface
                   : Theme.of(context).scaffoldBackgroundColor)
               : (invert
                   ? Theme.of(context).scaffoldBackgroundColor
-                  : Theme.of(context).colorScheme.background),
+                  : Theme.of(context).colorScheme.surface),
           child: Icon(Icons.more_vert,
               size: 18,
               color: hover.value

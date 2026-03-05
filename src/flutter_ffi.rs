@@ -1441,17 +1441,18 @@ pub fn main_load_fav_peers() {
             .iter()
             .filter(|d| favs.contains(&d.id) && recent.iter().all(|r| r.0 != d.id))
             .map(|d| {
+                // Keep persisted peer options (especially alias) for LAN favorites.
+                // Without this, renamed LAN peers always appear with empty alias.
+                let mut cfg = PeerConfig::load(&d.id);
+                cfg.info = PeerInfoSerde {
+                    username: d.username.clone(),
+                    hostname: d.hostname.clone(),
+                    platform: d.platform.clone(),
+                };
                 (
                     d.id.clone(),
                     SystemTime::UNIX_EPOCH,
-                    PeerConfig {
-                        info: PeerInfoSerde {
-                            username: d.username.clone(),
-                            hostname: d.hostname.clone(),
-                            platform: d.platform.clone(),
-                        },
-                        ..Default::default()
-                    },
+                    cfg,
                 )
             })
             .collect();

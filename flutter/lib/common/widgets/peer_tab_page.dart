@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:ui' as ui;
 
 import 'package:bot_toast/bot_toast.dart';
@@ -13,6 +14,7 @@ import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
 import 'package:flutter_hbb/desktop/pages/favorites_page.dart';
 import 'package:flutter_hbb/desktop/pages/saved_connections_page.dart';
 import 'package:flutter_hbb/desktop/pages/updates_page.dart';
+import 'package:flutter_hbb/utils/favorite_groups.dart';
 import 'package:flutter_hbb/desktop/widgets/popup_menu.dart';
 import 'package:flutter_hbb/desktop/widgets/material_mod_popup_menu.dart'
     as mod_menu;
@@ -131,9 +133,10 @@ class _PeerTabPageState extends State<PeerTabPage>
                 child: selectionWrap(Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Expanded(
-                        child: visibleContextMenuListener(
-                            _createSwitchBar(context))),
+                    visibleContextMenuListener(_createSwitchBar(context)),
+                    const SizedBox(width: 6),
+                    _buildTopLanguageSelector(),
+                    const Spacer(),
                     if (stateGlobal.isPortrait.isTrue)
                       ..._portraitRightActions(context)
                     else
@@ -150,7 +153,12 @@ class _PeerTabPageState extends State<PeerTabPage>
   Widget _createSwitchBar(BuildContext context) {
     final model = Provider.of<PeerTabModel>(context);
     var counter = -1;
-    return ReorderableListView(
+    final itemWidth = stateGlobal.isPortrait.isTrue ? 34.0 : 38.0;
+    final listWidth = (model.visibleEnabledOrderedIndexs.length * itemWidth)
+        .clamp(38.0, 260.0);
+    return SizedBox(
+      width: listWidth,
+      child: ReorderableListView(
         buildDefaultDragHandles: false,
         onReorder: model.reorder,
         scrollDirection: Axis.horizontal,
@@ -195,7 +203,120 @@ class _PeerTabPageState extends State<PeerTabPage>
                       onHover: (value) => hover.value = value,
                     ),
                   )));
-        }).toList());
+        }).toList(),
+      ),
+    );
+  }
+
+  Future<List<MapEntry<String, String>>> _loadLanguages() async {
+    final langs = await bind.mainGetLangs();
+    final langsList = jsonDecode(langs) as List<dynamic>;
+    final map = <String, String>{for (final v in langsList) v[0]: v[1]};
+    return <MapEntry<String, String>>[
+      MapEntry(defaultOptionLang, translate('Default')),
+      ...map.entries,
+    ];
+  }
+
+  String _flagForLang(String key) {
+    switch (key.toLowerCase()) {
+      case 'en':
+        return '🇺🇸';
+      case 'he':
+        return '🇮🇱';
+      case 'de':
+        return '🇩🇪';
+      case 'fr':
+        return '🇫🇷';
+      case 'es':
+        return '🇪🇸';
+      case 'it':
+        return '🇮🇹';
+      case 'pt':
+      case 'pt_pt':
+        return '🇵🇹';
+      case 'ptbr':
+        return '🇧🇷';
+      case 'ru':
+        return '🇷🇺';
+      case 'uk':
+        return '🇺🇦';
+      case 'tr':
+        return '🇹🇷';
+      case 'ja':
+        return '🇯🇵';
+      case 'ko':
+        return '🇰🇷';
+      case 'th':
+        return '🇹🇭';
+      case 'vi':
+        return '🇻🇳';
+      case 'ar':
+        return '🇸🇦';
+      case 'fa':
+        return '🇮🇷';
+      case 'id':
+        return '🇮🇩';
+      case 'cn':
+        return '🇨🇳';
+      case 'tw':
+        return '🇹🇼';
+      default:
+        return '🌐';
+    }
+  }
+
+  Widget _buildTopLanguageSelector() {
+    var currentKey = bind.mainGetLocalOption(key: kCommConfKeyLang);
+    if (currentKey.isEmpty) currentKey = defaultOptionLang;
+    return FutureBuilder<List<MapEntry<String, String>>>(
+      future: _loadLanguages(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const SizedBox(width: 22);
+        final items = snapshot.data!;
+        final selected = items.firstWhere(
+          (e) => e.key == currentKey,
+          orElse: () => MapEntry(defaultOptionLang, 'Default'),
+        );
+        return Tooltip(
+          message: translate('Language'),
+          child: PopupMenuButton<String>(
+            padding: EdgeInsets.zero,
+            onSelected: (key) async {
+              await bind.mainSetLocalOption(key: kCommConfKeyLang, value: key);
+              if (isWeb) reloadCurrentWindow();
+              if (!isWeb) {
+                reloadAllWindows();
+                bind.mainChangeLanguage(lang: key);
+              }
+              setState(() {});
+            },
+            icon: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(_flagForLang(selected.key),
+                    style: const TextStyle(fontSize: 14)),
+                const Icon(Icons.arrow_drop_down, size: 16),
+              ],
+            ),
+            itemBuilder: (context) => items
+                .map(
+                  (e) => PopupMenuItem<String>(
+                    value: e.key,
+                    child: Row(
+                      children: [
+                        Text(_flagForLang(e.key)),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(e.value)),
+                      ],
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+        );
+      },
+    );
   }
 
   Widget _createPeersView() {
@@ -229,7 +350,11 @@ class _PeerTabPageState extends State<PeerTabPage>
       ));
     } else {
       if (model.visibleEnabledOrderedIndexs.contains(model.currentTab)) {
-        child = entries[model.currentTab].widget;
+        if (model.currentTab == PeerTabIndex.fav.index) {
+          child = const FavoritesPage();
+        } else {
+          child = entries[model.currentTab].widget;
+        }
       } else {
         debugPrint("should not happen! currentTab not in visibleIndexs");
         Future.delayed(Duration.zero, () {
@@ -280,21 +405,6 @@ class _PeerTabPageState extends State<PeerTabPage>
 
   List<Widget> _homePanelActions() {
     return [
-      _panelIcon(
-        panel: _HomePanelType.favorites,
-        icon: Icons.star_outline,
-        tooltip: translate('Favorites'),
-      ),
-      _panelIcon(
-        panel: _HomePanelType.savedConnections,
-        icon: Icons.folder_open_outlined,
-        tooltip: translate('Saved Connections'),
-      ),
-      _panelIcon(
-        panel: _HomePanelType.settings,
-        icon: Icons.settings_outlined,
-        tooltip: translate('Settings'),
-      ),
       _panelIcon(
         panel: _HomePanelType.updates,
         icon: Icons.system_update_alt_rounded,
@@ -538,6 +648,10 @@ class _PeerTabPageState extends State<PeerTabPage>
           for (var p in peers) {
             if (!favs.contains(p.id)) {
               favs.add(p.id);
+              await FavoriteGroupsStore.assignPeerToGroup(
+                p.id,
+                kDefaultFavoriteGroup,
+              );
             }
           }
           await bind.mainStoreFav(favs: favs);

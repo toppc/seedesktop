@@ -2070,7 +2070,7 @@ void editAbPeerNoteDialog(String id) {
 void renameDialog(
     {required String oldName,
     FormFieldValidator<String>? validator,
-    required ValueChanged<String> onSubmit,
+    required FutureOr<void> Function(String) onSubmit,
     Function? onCancel}) async {
   RxBool isInProgress = false.obs;
   var controller = TextEditingController(text: oldName);
@@ -2082,7 +2082,7 @@ void renameDialog(
         return;
       }
       isInProgress.value = true;
-      onSubmit(text);
+      await onSubmit(text);
       close();
       isInProgress.value = false;
     }
@@ -2571,7 +2571,7 @@ void setSharedAbPasswordDialog(String abName, Peer peer) {
             icon: Icon(Icons.delete_outline_rounded),
             onPressed: () => change(''),
             buttonStyle: ButtonStyle(
-                backgroundColor: MaterialStatePropertyAll(Colors.red)),
+                backgroundColor: WidgetStatePropertyAll(Colors.red)),
           ),
         Obx(() => dialogButton(
               "OK",

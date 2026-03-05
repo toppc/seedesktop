@@ -5,7 +5,6 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart'; // <-- תוספת שלנו: זיכרון מקומי
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/common/widgets/audio_input.dart';
@@ -282,7 +281,7 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
   Widget build(BuildContext context) {
     super.build(context);
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: _buildBlock(
         children: <Widget>[
           SizedBox(
@@ -421,7 +420,6 @@ class _GeneralState extends State<_General> {
       children: [
         if (!isWeb) service(),
         theme(),
-        _Card(title: 'Language', children: [language()]),
         if (!isWeb) hwcodec(),
         if (!isWeb) audio(context),
         if (!isWeb) record(context),
@@ -940,8 +938,8 @@ class _AccountState extends State<_Account> {
             'התנתק / החלף רישיון',
             _logout,
             style: ButtonStyle(
-              backgroundColor: MaterialStateProperty.all<Color>(Colors.red),
-              foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
+              backgroundColor: WidgetStateProperty.all<Color>(Colors.red),
+              foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
             ))
       ],
     );
@@ -2251,7 +2249,7 @@ class _PluginState extends State<_Plugin> {
 }
 
 class _Printer extends StatefulWidget {
-  const _Printer({super.key});
+  const _Printer();
 
   @override
   State<_Printer> createState() => __PrinterState();
@@ -2742,7 +2740,7 @@ class _WaylandCardState extends State<WaylandCard> {
       showConfirmMsgBox,
       tip: 'clear_Wayland_screen_selection_tip',
       style: ButtonStyle(
-        backgroundColor: MaterialStateProperty.all<Color>(
+        backgroundColor: WidgetStateProperty.all<Color>(
             Theme.of(context).colorScheme.error.withOpacity(0.75)),
       ),
     );
@@ -2785,7 +2783,7 @@ class _WaylandCardState extends State<WaylandCard> {
         showConfirmMsgBox,
         tip: 'clear-shortcuts-inhibitor-permission-tip',
         style: ButtonStyle(
-          backgroundColor: MaterialStateProperty.all<Color>(
+          backgroundColor: WidgetStateProperty.all<Color>(
               Theme.of(context).colorScheme.error.withOpacity(0.75)),
         ),
       ),

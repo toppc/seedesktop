@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import '../../models/model.dart';
+import '../../utils/license_manager.dart';
 
 /// Manages terminal connections to ensure one FFI instance per peer
 class TerminalConnectionManager {
@@ -62,6 +65,7 @@ class TerminalConnectionManager {
         _connections.remove(peerId);
         _connectionRefCount.remove(peerId);
         Get.delete<FFI>(tag: 'terminal_$peerId');
+        unawaited(releaseConnectionForPeer(peerId));
       }
     } else {
       // Decrement reference count

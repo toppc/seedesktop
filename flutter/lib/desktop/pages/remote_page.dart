@@ -338,7 +338,7 @@ class _RemotePageState extends State<RemotePage>
     _rawKeyFocusNode.dispose();
     await _ffi.close(closeSession: closeSession);
     if (closeSession) {
-      final releaseError = await releaseConnectionFromPrefs();
+      final releaseError = await releaseConnectionForPeer(widget.id);
       if (releaseError != null) {
         debugPrint(releaseError);
       }
@@ -451,7 +451,7 @@ class _RemotePageState extends State<RemotePage>
     }
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: Obx(() {
         final imageReady = _ffi.ffiModel.pi.isSet.isTrue &&
             _ffi.ffiModel.waitForFirstImage.isFalse;

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 
 import 'package:back_button_interceptor/back_button_interceptor.dart';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
@@ -40,6 +39,7 @@ import 'mobile/pages/terminal_page.dart';
 import 'desktop/pages/remote_page.dart' as desktop_remote;
 import 'desktop/pages/file_manager_page.dart' as desktop_file_manager;
 import 'desktop/pages/view_camera_page.dart' as desktop_view_camera;
+import 'desktop/pages/desktop_tab_page.dart';
 import 'package:flutter_hbb/desktop/widgets/remote_toolbar.dart';
 import 'models/model.dart';
 import 'models/platform_model.dart';
@@ -728,7 +728,7 @@ Future<void> windowOnTop(int? id) async {
   if (!isDesktop) {
     return;
   }
-  print("Bring window '$id' on top");
+  if (kDebugMode) debugPrint("Bring window '$id' on top");
   if (id == null) {
     // main window
     if (stateGlobal.isMinimized) {
@@ -2100,6 +2100,9 @@ Future<bool> restoreWindowPosition(WindowType type,
           await restorePos();
         }
       }
+      if (!await windowManager.isMaximized()) {
+        await windowManager.maximize();
+      }
       return true;
     default:
       final wc = WindowController.fromWindowId(windowId!);
@@ -2154,7 +2157,7 @@ Future<bool> initUniLinks() async {
   // check cold boot
   try {
     final initialLink = await getInitialLink();
-    print("initialLink: $initialLink");
+    if (kDebugMode) debugPrint("initialLink: $initialLink");
     if (initialLink == null || initialLink.isEmpty) {
       return false;
     }
@@ -2189,10 +2192,10 @@ StreamSubscription? listenUniLinks({handleByFlutter = true}) {
         bind.sendUrlScheme(url: uri.toString());
       }
     } else {
-      print("uni listen error: uri is empty.");
+      if (kDebugMode) debugPrint("uni listen error: uri is empty.");
     }
   }, onError: (err) {
-    print("uni links error: $err");
+    if (kDebugMode) debugPrint("uni links error: $err");
   });
   return sub;
 }
@@ -2489,10 +2492,13 @@ connectMainDesktop(String id,
         connToken: connToken,
         forceRelay: forceRelay);
   } else {
-    await rustDeskWinManager.newRemoteDesktop(id,
-        password: password,
-        isSharedPassword: isSharedPassword,
-        forceRelay: forceRelay);
+    DesktopTabPage.onAddRemoteTab(
+      id,
+      password: password,
+      isSharedPassword: isSharedPassword,
+      forceRelay: forceRelay,
+    );
+    await windowManager.maximize();
   }
 }
 
@@ -2512,22 +2518,39 @@ connect(BuildContext context, String id,
     String? connToken,
     bool? isSharedPassword}) async {
   if (id == '') return;
+  await bind.mainSetUserDefaultOption(
+      key: kOptionViewStyle, value: kRemoteViewStyleAdaptive);
   final allowed = await shouldAllowConnectionWithFreemiumGate(context);
   if (!allowed) return;
   final prefs = await SharedPreferences.getInstance();
   final savedLicense = prefs.getString('saved_license');
   if (savedLicense != null && savedLicense.trim().isNotEmpty) {
-    final sessionResult = await startSession(savedLicense);
+    final hardwareId = await bind.mainGetUuid();
+    final sessionResult = await startSession(
+      savedLicense,
+      hardwareId: hardwareId,
+      targetPc: id,
+      peerId: id,
+    );
     if (!sessionResult.approved) {
       if (sessionResult.limitReached) {
         await showDialog<void>(
           context: context,
           builder: (dialogContext) => AlertDialog(
-            title: const Text('Connection limit reached'),
+            title: const Text('Seat Limit Reached'),
             content: const Text(
-              'Connection limit reached. All allowed sessions for your license are currently in use.',
+              'Another station is currently using this license seat. '
+              'Please release a seat from your account, then try again.',
             ),
             actions: [
+              TextButton(
+                onPressed: () async {
+                  await launchUrl(
+                    Uri.parse('https://seedesktop.co.il/my-account/'),
+                  );
+                },
+                child: const Text('Open My Account'),
+              ),
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
                 child: const Text('OK'),
@@ -2807,8 +2830,10 @@ bool isRunningInPortableMode() {
 
 /// Window status callback
 Future<void> onActiveWindowChanged() async {
-  print(
-      "[MultiWindowHandler] active window changed: ${rustDeskWinManager.getActiveWindows()}");
+  if (kDebugMode) {
+    debugPrint(
+        "[MultiWindowHandler] active window changed: ${rustDeskWinManager.getActiveWindows()}");
+  }
   if (rustDeskWinManager.getActiveWindows().isEmpty) {
     // close all sub windows
     try {
@@ -3054,7 +3079,7 @@ enum PermissionAuthorizeType {
 
 Future<PermissionAuthorizeType> osxCanRecordAudio() async {
   int res = await kMacOSPermChannel.invokeMethod("canRecordAudio");
-  print(res);
+  if (kDebugMode) debugPrint('$res');
   if (res > 0) {
     return PermissionAuthorizeType.authorized;
   } else if (res == 0) {

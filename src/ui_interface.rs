@@ -767,6 +767,17 @@ pub fn peer_to_map(id: String, p: PeerConfig) -> HashMap<&'static str, String> {
             "hash",
             base64::encode(p.password, base64::Variant::Original),
         ),
+        (
+            "note",
+            p.options.get("note").unwrap_or(&"".to_owned()).to_owned(),
+        ),
+        (
+            "preview_path",
+            p.options
+                .get("desktop-preview-path")
+                .unwrap_or(&"".to_owned())
+                .to_owned(),
+        ),
     ])
 }
 
@@ -800,6 +811,13 @@ pub fn remove_discovered(id: String) {
 
 #[inline]
 pub fn get_uuid() -> String {
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        let hwid = hbb_common::machine_uid::get().unwrap_or_default();
+        if !hwid.is_empty() {
+            return crate::encode64(hwid.as_bytes());
+        }
+    }
     crate::encode64(hbb_common::get_uuid())
 }
 

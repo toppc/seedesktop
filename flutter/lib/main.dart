@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bot_toast/bot_toast.dart';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
@@ -39,39 +37,6 @@ import 'package:flutter_hbb/plugin/handlers.dart'
 int? kWindowId;
 WindowType? kWindowType;
 late List<String> kBootArgs;
-
-// =========================================================================
-// --- התחלת התוספת של SeeDesktop: פונקציית פעימות הלב (Heartbeat) לשרת ---
-// =========================================================================
-void startHeartbeatTimer() {
-  // הטיימר ירוץ כל 60 שניות ברקע
-  Timer.periodic(const Duration(seconds: 60), (timer) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? license = prefs.getString('saved_license');
-    String? sessionId = prefs.getString('session_id');
-
-    // אם הלקוח מחובר ויש לו סשן, שולחים פינג לשרת
-    if (license != null && sessionId != null) {
-      final String serverUrl = "http://187.124.13.191/heartbeat"; 
-      try {
-        await http.post(
-          Uri.parse(serverUrl),
-          headers: {"Content-Type": "application/json"},
-          body: jsonEncode({
-            "license_key": license,
-            "session_id": sessionId
-          }),
-        );
-        debugPrint("❤️ SeeDesktop Heartbeat sent to 187.124.13.191 for session: $sessionId"); 
-      } catch (e) {
-        debugPrint("SeeDesktop Heartbeat connection error: $e");
-      }
-    }
-  });
-}
-// =========================================================================
-// --- סוף התוספת ---
-// =========================================================================
 
 Future<void> main(List<String> args) async {
   earlyAssert();
@@ -175,11 +140,8 @@ void runMainApp(bool startService) async {
   checkUpdate();
   // trigger connection status updater
   await bind.mainCheckConnectStatus();
-  
-  // ==================================================
-  // --- הפעלת טיימר הרישיונות של SeeDesktop ברקע ---
-  // ==================================================
-  startHeartbeatTimer(); 
+  await cacheHardwareId(await bind.mainGetUuid());
+  await LicenseHeartbeatManager.instance.start();
   
   if (startService) {
     gFFI.serverModel.startService();
@@ -208,8 +170,10 @@ void runMainApp(bool startService) async {
     if (handledByUniLinks || handleUriLink(cmdArgs: kBootArgs)) {
       windowManager.hide();
     } else {
-      windowManager.show();
-      windowManager.focus();
+      await windowManager.show();
+      await windowManager.focus();
+      // Always open the main app window maximized.
+      await windowManager.maximize();
       // Move registration of active main window here to prevent from async visible check.
       rustDeskWinManager.registerActiveWindow(kWindowMainId);
     }
@@ -223,9 +187,8 @@ void runMainApp(bool startService) async {
 void runMobileApp() async {
   await initEnv(kAppTypeMain);
   checkUpdate();
-  
-  // הפעלת הטיימר גם בגרסת המובייל אם צריך
-  startHeartbeatTimer();
+  await cacheHardwareId(await bind.mainGetUuid());
+  await LicenseHeartbeatManager.instance.start();
   
   if (isAndroid) androidChannelInit();
   if (isAndroid) platformFFI.syncAndroidServiceAppDirConfigPath();

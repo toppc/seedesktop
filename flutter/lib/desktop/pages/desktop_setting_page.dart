@@ -829,6 +829,7 @@ class _AccountState extends State<_Account> {
   // שולף נתונים מהזיכרון כדי לבדוק אם יש רישיון שמור
   Future<void> _loadUserData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
+    final savedLicense = await getSavedLicenseKey();
     setState(() {
       maskedLicense = prefs.getString('masked_license');
       allowedConnections = prefs.getInt('allowed_connections') ??
@@ -836,7 +837,7 @@ class _AccountState extends State<_Account> {
           0;
       activeConnections = prefs.getInt('active_connections') ?? 0;
       sessionId = prefs.getString('session_id');
-      fullLicense = prefs.getString('saved_license');
+      fullLicense = savedLicense;
     });
     if (fullLicense != null && fullLicense!.trim().isNotEmpty) {
       await _loadActiveSessions();
@@ -930,6 +931,8 @@ class _AccountState extends State<_Account> {
               Text("$displayedActiveConnections / $allowedConnections חיבורים במקביל",
                   style: const TextStyle(fontSize: 16)),
               const SizedBox(height: 14),
+              _buildLicenseServerStatus(),
+              const SizedBox(height: 10),
               _buildLiveSessionMonitor(),
             ],
           ),
@@ -942,6 +945,31 @@ class _AccountState extends State<_Account> {
               foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
             ))
       ],
+    );
+  }
+
+  Widget _buildLicenseServerStatus() {
+    return ValueListenableBuilder<LicenseServerStatus>(
+      valueListenable: LicenseHeartbeatManager.instance.status,
+      builder: (context, status, _) {
+        final isOnline = status == LicenseServerStatus.online;
+        final color = isOnline ? Colors.green : Colors.red;
+        final text = isOnline ? 'Server Online' : 'Reconnecting...';
+        return Row(
+          children: [
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text('Connected to License Server: $text'),
+          ],
+        );
+      },
     );
   }
 

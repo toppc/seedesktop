@@ -144,7 +144,7 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
     _mobileFocusNode.dispose();
     _physicalFocusNode.dispose();
     await gFFI.close();
-    final releaseError = await releaseConnectionFromPrefs();
+    final releaseError = await releaseConnectionForPeer(widget.id);
     if (releaseError != null) {
       debugPrint(releaseError);
     }

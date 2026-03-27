@@ -30,7 +30,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref || github.ref }}
-          submodules: recursive
+          submodules: false
+
+      - name: Resolve hbb_common dependency
+        run: |
+          set -euxo pipefail
+          if ! git submodule update --init --depth=1 libs/hbb_common; then
+            echo "Submodule commit is unavailable; fallback to latest hbb_common."
+            rm -rf libs/hbb_common
+            git clone --depth=1 https://github.com/rustdesk/hbb_common libs/hbb_common
+          fi
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2

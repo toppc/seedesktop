@@ -6,10 +6,10 @@ on:
       ref:
         description: "Branch or tag to build"
         required: false
-        default: "main"
+        default: "master"
   push:
     branches:
-      - main
+      - master
     paths:
       - "src/**"
       - "libs/**"

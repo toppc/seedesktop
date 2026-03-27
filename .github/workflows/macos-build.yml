@@ -54,21 +54,27 @@ jobs:
           cd flutter
           flutter pub get
 
-      # scrap/build.rs links libyuv, libvpx, aom from Homebrew on Apple Silicon when VCPKG_ROOT is unset.
+      # libyuv is not reliably available via Homebrew; RustDesk ships prebuilt Cellar trees (libyuv, etc.) in mac_deps.tar.gz.
       # magnum-opus expects opus. create-dmg packages the app at the end.
       - name: Install Rust native dependencies (Homebrew)
         run: |
           set -euxo pipefail
           brew update
           brew install \
-            pkg-config \
-            cmake \
             ninja \
             create-dmg \
-            libyuv \
             opus \
             aom \
             libvpx
+
+      - name: Download and install macOS dependencies
+        run: |
+          set -euxo pipefail
+          brew install pkg-config cmake
+          curl -fL -o mac_deps.tar.gz \
+            https://github.com/rustdesk/doc.rustdesk.com/releases/download/console/mac_deps.tar.gz
+          tar xzf mac_deps.tar.gz
+          sudo cp -r mac_deps/* /opt/homebrew/Cellar/
 
       - name: Build macOS release
         run: python3 build.py --flutter

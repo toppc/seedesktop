@@ -33,14 +33,14 @@ jobs:
 
     steps:
       - name: Export GitHub Actions cache environment variables
-        uses: actions/github-script@v6
+        uses: actions/github-script@v8
         with:
           script: |
             core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ inputs.ref || github.ref }}
 
@@ -129,7 +129,7 @@ jobs:
             "$APP_PATH"
 
       - name: Upload installer artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: macos-installer
           path: |

@@ -49,15 +49,26 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install macOS build tools
-        run: |
-          brew update
-          brew install create-dmg cmake ninja pkg-config opus libyuv
-
       - name: Flutter dependencies
         run: |
           cd flutter
           flutter pub get
+
+      # scrap/build.rs links libyuv, libvpx, aom from Homebrew on Apple Silicon when VCPKG_ROOT is unset.
+      # magnum-opus expects opus. create-dmg packages the app at the end.
+      - name: Install Rust native dependencies (Homebrew)
+        run: |
+          set -euxo pipefail
+          brew update
+          brew install \
+            pkg-config \
+            cmake \
+            ninja \
+            create-dmg \
+            libyuv \
+            opus \
+            aom \
+            libvpx
 
       - name: Build macOS release
         run: python3 build.py --flutter

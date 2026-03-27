@@ -15,14 +15,15 @@ import 'package:flutter_hbb/models/peer_model.dart';
 import 'package:flutter_hbb/models/peer_tab_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
 import 'package:flutter_hbb/utils/freemium_guard.dart';
+import 'package:flutter_hbb/utils/admin_settings_service.dart';
 import 'package:flutter_hbb/utils/multi_window_manager.dart';
+import 'package:flutter_hbb/utils/ota_update_service.dart';
 import 'package:flutter_hbb/utils/platform_channel.dart';
 import 'package:flutter_hbb/utils/license_manager.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:get/get_rx/src/rx_workers/utils/debouncer.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uni_links/uni_links.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
@@ -32,6 +33,7 @@ import 'package:window_size/window_size.dart' as window_size;
 
 import '../consts.dart';
 import 'common/widgets/overlay.dart';
+import 'common/widgets/premium_paywall_dialog.dart';
 import 'mobile/pages/file_manager_page.dart';
 import 'mobile/pages/remote_page.dart';
 import 'mobile/pages/view_camera_page.dart';
@@ -39,7 +41,7 @@ import 'mobile/pages/terminal_page.dart';
 import 'desktop/pages/remote_page.dart' as desktop_remote;
 import 'desktop/pages/file_manager_page.dart' as desktop_file_manager;
 import 'desktop/pages/view_camera_page.dart' as desktop_view_camera;
-import 'desktop/pages/desktop_tab_page.dart';
+import 'desktop/desktop_remote_tab_registry.dart';
 import 'package:flutter_hbb/desktop/widgets/remote_toolbar.dart';
 import 'models/model.dart';
 import 'models/platform_model.dart';
@@ -254,16 +256,16 @@ class MyTheme {
   MyTheme._();
 
   static const Color grayBg = Color(0xFFEFEFF2);
-  static const Color accent = Color(0xFF0071FF);
-  static const Color accent50 = Color(0x770071FF);
-  static const Color accent80 = Color(0xAA0071FF);
+  static const Color accent = Color(0xFF32BEA6);
+  static const Color accent50 = Color(0x7732BEA6);
+  static const Color accent80 = Color(0xAA32BEA6);
   static const Color canvasColor = Color(0xFF212121);
   static const Color border = Color(0xFFCCCCCC);
   static const Color idColor = Color(0xFF00B6F0);
   static const Color darkGray = Color.fromARGB(255, 148, 148, 148);
   static const Color cmIdColor = Color(0xFF21790B);
   static const Color dark = Colors.black87;
-  static const Color button = Color(0xFF2C8CFF);
+  static const Color button = Color(0xFF2AA792);
   static const Color hoverBorder = Color(0xFF999999);
 
   // ListTile
@@ -456,8 +458,8 @@ class MyTheme {
     menuBarTheme: MenuBarThemeData(
         style:
             MenuStyle(backgroundColor: WidgetStatePropertyAll(Colors.white))),
-    colorScheme: ColorScheme.light(
-        primary: Colors.blue, secondary: accent, surface: grayBg),
+    colorScheme:
+        ColorScheme.light(primary: accent, secondary: accent, surface: grayBg),
     popupMenuTheme: PopupMenuThemeData(
         color: Colors.white,
         shape: RoundedRectangleBorder(
@@ -565,7 +567,7 @@ class MyTheme {
         style: MenuStyle(
             backgroundColor: WidgetStatePropertyAll(Color(0xFF121212)))),
     colorScheme: ColorScheme.dark(
-      primary: Colors.blue,
+      primary: accent,
       secondary: accent,
       surface: Color(0xFF24252B),
     ),
@@ -705,6 +707,8 @@ String formatDurationToTime(Duration duration) {
 }
 
 closeConnection({String? id}) {
+  // Release free-plan slot immediately on user-triggered disconnect.
+  _releaseFreeOutgoingSlotLocal(id);
   if (isAndroid || isIOS) {
     () async {
       await SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual,
@@ -722,6 +726,18 @@ closeConnection({String? id}) {
       controller.closeBy(id);
     }
   }
+}
+
+void _occupyFreeOutgoingSlotLocal(String peerId) {
+  final normalized = peerId.trim();
+  if (normalized.isEmpty) return;
+  stateGlobal.freeActiveOutgoingPeerIds.add(normalized);
+}
+
+void _releaseFreeOutgoingSlotLocal(String? peerId) {
+  // Free plan allows only one active outgoing connection.
+  // Clear immediately on any disconnect/failure trigger to avoid zombie locks.
+  stateGlobal.freeActiveOutgoingPeerIds.clear();
 }
 
 Future<void> windowOnTop(int? id) async {
@@ -1635,26 +1651,32 @@ bool mainGetPeerBoolOptionSync(String id, String key) {
 // Use `sessionGetToggleOption()` and `sessionToggleOption()` instead.
 // Because all session options use `Y` and `<Empty>` as values.
 
-Future<bool> matchPeer(
-    String searchText, Peer peer, PeerTabIndex peerTabIndex) async {
-  if (searchText.isEmpty) {
+/// Same rules as [matchPeer]. Pass [searchText] already trimmed and lowercased (or empty).
+bool matchPeerSync(
+    String searchTextLower, Peer peer, PeerTabIndex peerTabIndex) {
+  if (searchTextLower.isEmpty) {
     return true;
   }
-  if (peer.id.toLowerCase().contains(searchText)) {
+  if (peer.id.toLowerCase().contains(searchTextLower)) {
     return true;
   }
-  if (peer.hostname.toLowerCase().contains(searchText) ||
-      peer.username.toLowerCase().contains(searchText)) {
+  if (peer.hostname.toLowerCase().contains(searchTextLower) ||
+      peer.username.toLowerCase().contains(searchTextLower)) {
     return true;
   }
-  if (peer.alias.toLowerCase().contains(searchText)) {
+  if (peer.alias.toLowerCase().contains(searchTextLower)) {
     return true;
   }
   if (peerTabShowNote(peerTabIndex) &&
-      peer.note.toLowerCase().contains(searchText)) {
+      peer.note.toLowerCase().contains(searchTextLower)) {
     return true;
   }
   return false;
+}
+
+Future<bool> matchPeer(
+    String searchText, Peer peer, PeerTabIndex peerTabIndex) async {
+  return matchPeerSync(searchText.trim().toLowerCase(), peer, peerTabIndex);
 }
 
 /// Get the image for the current [platform].
@@ -2492,7 +2514,7 @@ connectMainDesktop(String id,
         connToken: connToken,
         forceRelay: forceRelay);
   } else {
-    DesktopTabPage.onAddRemoteTab(
+    invokeDesktopRemoteTabOpener(
       id,
       password: password,
       isSharedPassword: isSharedPassword,
@@ -2507,6 +2529,43 @@ connectMainDesktop(String id,
 /// If [isViewCamera], starts a session only for view camera.
 /// If [isTcpTunneling], starts a session only for tcp tunneling.
 /// If [isRDP], starts a session only for rdp.
+Future<bool> _ensureMobileLicenseSessionReady(
+  BuildContext context,
+  String peerId,
+) async {
+  if (isDesktop || isWeb) return true;
+  try {
+    final hardwareId = (await bind.mainGetUuid()).trim();
+    final result = await startSessionFromPrefs(
+      hardwareId: hardwareId,
+      targetPc: peerId,
+      peerId: peerId,
+    );
+    if (result.limitReached) {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Seat Limit Reached'),
+          content: const Text(
+            'Another station is currently using this license seat. '
+            'Please release a seat from your account, then try again.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return false;
+    }
+  } catch (_) {
+    // Keep connection behavior non-blocking for transient license API issues.
+  }
+  return true;
+}
+
 connect(BuildContext context, String id,
     {bool isFileTransfer = false,
     bool isViewCamera = false,
@@ -2518,63 +2577,33 @@ connect(BuildContext context, String id,
     String? connToken,
     bool? isSharedPassword}) async {
   if (id == '') return;
-  await bind.mainSetUserDefaultOption(
-      key: kOptionViewStyle, value: kRemoteViewStyleAdaptive);
-  final allowed = await shouldAllowConnectionWithFreemiumGate(context);
-  if (!allowed) return;
-  final prefs = await SharedPreferences.getInstance();
-  final savedLicense = prefs.getString('saved_license');
-  if (savedLicense != null && savedLicense.trim().isNotEmpty) {
-    final hardwareId = await bind.mainGetUuid();
-    final sessionResult = await startSession(
-      savedLicense,
-      hardwareId: hardwareId,
-      targetPc: id,
-      peerId: id,
-    );
-    if (!sessionResult.approved) {
-      if (sessionResult.limitReached) {
-        await showDialog<void>(
-          context: context,
-          builder: (dialogContext) => AlertDialog(
-            title: const Text('Seat Limit Reached'),
-            content: const Text(
-              'Another station is currently using this license seat. '
-              'Please release a seat from your account, then try again.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () async {
-                  await launchUrl(
-                    Uri.parse('https://seedesktop.co.il/my-account/'),
-                  );
-                },
-                child: const Text('Open My Account'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-        );
-      } else if (sessionResult.message.isNotEmpty) {
-        await showDialog<void>(
-          context: context,
-          builder: (dialogContext) => AlertDialog(
-            title: const Text('License error'),
-            content: Text(sessionResult.message),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-        );
+  if (isFileTransfer && !await hasProLicenseLocal()) {
+    await showPremiumPaywallDialog(context);
+    return;
+  }
+  final hasProLicense = await hasProLicenseLocal();
+  final isFreeTier = await isFreeTierLicenseLocal();
+  final enforceSingleActiveSession = !hasProLicense || isFreeTier;
+  final rawInputId = id.replaceAll(' ', '');
+  if (enforceSingleActiveSession) {
+    if (stateGlobal.freeActiveOutgoingPeerIds.isNotEmpty) {
+      if (isFreeTier) {
+        await showFreeTierSessionLimitDialog(context);
+      } else {
+        await showConcurrentConnectionLicenseDialog(context);
       }
       return;
     }
+    _occupyFreeOutgoingSlotLocal(rawInputId);
+  }
+  await bind.mainSetUserDefaultOption(
+      key: kOptionViewStyle, value: kRemoteViewStyleAdaptive);
+  final allowed = await shouldAllowConnectionWithFreemiumGate(context);
+  if (!allowed) {
+    if (enforceSingleActiveSession) {
+      _releaseFreeOutgoingSlotLocal(rawInputId);
+    }
+    return;
   }
   if (!isDesktop || desktopType == DesktopType.main) {
     try {
@@ -2594,139 +2623,165 @@ connect(BuildContext context, String id,
   forceRelay = id != oldId || forceRelay;
   assert(!(isFileTransfer && isTcpTunneling && isRDP),
       "more than one connect type");
-
-  if (isDesktop) {
-    if (desktopType == DesktopType.main) {
-      await connectMainDesktop(
-        id,
-        isFileTransfer: isFileTransfer,
-        isViewCamera: isViewCamera,
-        isTerminal: isTerminal,
-        isTcpTunneling: isTcpTunneling,
-        isRDP: isRDP,
-        password: password,
-        isSharedPassword: isSharedPassword,
-        forceRelay: forceRelay,
-      );
-    } else {
-      await rustDeskWinManager.call(WindowType.Main, kWindowConnect, {
-        'id': id,
-        'isFileTransfer': isFileTransfer,
-        'isViewCamera': isViewCamera,
-        'isTerminal': isTerminal,
-        'isTcpTunneling': isTcpTunneling,
-        'isRDP': isRDP,
-        'password': password,
-        'isSharedPassword': isSharedPassword,
-        'forceRelay': forceRelay,
-        'connToken': connToken,
-      });
+  final canContinue = await _ensureMobileLicenseSessionReady(context, id);
+  if (!canContinue) {
+    if (enforceSingleActiveSession) {
+      _releaseFreeOutgoingSlotLocal(rawInputId);
     }
-  } else {
-    if (isFileTransfer) {
-      if (isAndroid) {
-        if (!await AndroidPermissionManager.check(kManageExternalStorage)) {
-          if (!await AndroidPermissionManager.request(kManageExternalStorage)) {
-            return;
+    return;
+  }
+
+  try {
+    if (isDesktop) {
+      if (desktopType == DesktopType.main) {
+        await connectMainDesktop(
+          id,
+          isFileTransfer: isFileTransfer,
+          isViewCamera: isViewCamera,
+          isTerminal: isTerminal,
+          isTcpTunneling: isTcpTunneling,
+          isRDP: isRDP,
+          password: password,
+          isSharedPassword: isSharedPassword,
+          forceRelay: forceRelay,
+        );
+      } else {
+        await rustDeskWinManager.call(WindowType.Main, kWindowConnect, {
+          'id': id,
+          'isFileTransfer': isFileTransfer,
+          'isViewCamera': isViewCamera,
+          'isTerminal': isTerminal,
+          'isTcpTunneling': isTcpTunneling,
+          'isRDP': isRDP,
+          'password': password,
+          'isSharedPassword': isSharedPassword,
+          'forceRelay': forceRelay,
+          'connToken': connToken,
+        });
+      }
+    } else {
+      if (isFileTransfer) {
+        if (isAndroid) {
+          if (!await AndroidPermissionManager.check(kManageExternalStorage)) {
+            if (!await AndroidPermissionManager.request(
+                kManageExternalStorage)) {
+              if (enforceSingleActiveSession) {
+                _releaseFreeOutgoingSlotLocal(id);
+              }
+              return;
+            }
           }
         }
-      }
-      if (isWeb) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (BuildContext context) =>
-                desktop_file_manager.FileManagerPage(
-                    id: id,
-                    password: password,
-                    isSharedPassword: isSharedPassword),
-          ),
-        );
-      } else {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (BuildContext context) => FileManagerPage(
+        if (isWeb) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (BuildContext context) =>
+                  desktop_file_manager.FileManagerPage(
+                      id: id,
+                      password: password,
+                      isSharedPassword: isSharedPassword),
+            ),
+          );
+        } else {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (BuildContext context) => FileManagerPage(
+                  id: id,
+                  password: password,
+                  isSharedPassword: isSharedPassword,
+                  forceRelay: forceRelay),
+            ),
+          );
+        }
+      } else if (isViewCamera) {
+        if (isWeb) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (BuildContext context) =>
+                  desktop_view_camera.ViewCameraPage(
+                key: ValueKey(id),
                 id: id,
+                toolbarState: ToolbarState(),
                 password: password,
                 isSharedPassword: isSharedPassword,
-                forceRelay: forceRelay),
-          ),
-        );
-      }
-    } else if (isViewCamera) {
-      if (isWeb) {
+              ),
+            ),
+          );
+        } else {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (BuildContext context) => ViewCameraPage(
+                  id: id,
+                  password: password,
+                  isSharedPassword: isSharedPassword,
+                  forceRelay: forceRelay),
+            ),
+          );
+        }
+      } else if (isTerminal) {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (BuildContext context) =>
-                desktop_view_camera.ViewCameraPage(
-              key: ValueKey(id),
+            builder: (BuildContext context) => TerminalPage(
               id: id,
-              toolbarState: ToolbarState(),
               password: password,
               isSharedPassword: isSharedPassword,
+              forceRelay: forceRelay,
             ),
           ),
         );
       } else {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (BuildContext context) => ViewCameraPage(
+        if (isWeb) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (BuildContext context) => desktop_remote.RemotePage(
+                key: ValueKey(id),
                 id: id,
+                toolbarState: ToolbarState(),
                 password: password,
                 isSharedPassword: isSharedPassword,
-                forceRelay: forceRelay),
-          ),
-        );
-      }
-    } else if (isTerminal) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (BuildContext context) => TerminalPage(
-            id: id,
-            password: password,
-            isSharedPassword: isSharedPassword,
-            forceRelay: forceRelay,
-          ),
-        ),
-      );
-    } else {
-      if (isWeb) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (BuildContext context) => desktop_remote.RemotePage(
-              key: ValueKey(id),
-              id: id,
-              toolbarState: ToolbarState(),
-              password: password,
-              isSharedPassword: isSharedPassword,
+              ),
             ),
-          ),
-        );
-      } else {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (BuildContext context) => RemotePage(
-                id: id,
-                password: password,
-                isSharedPassword: isSharedPassword,
-                forceRelay: forceRelay),
-          ),
-        );
+          );
+        } else {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (BuildContext context) => RemotePage(
+                  id: id,
+                  password: password,
+                  isSharedPassword: isSharedPassword,
+                  forceRelay: forceRelay),
+            ),
+          );
+        }
       }
+      stateGlobal.isInMainPage = false;
     }
-    stateGlobal.isInMainPage = false;
+  } catch (_) {
+    if (enforceSingleActiveSession) {
+      _releaseFreeOutgoingSlotLocal(id);
+    }
+    rethrow;
   }
 
   FocusScopeNode currentFocus = FocusScope.of(context);
   if (!currentFocus.hasPrimaryFocus) {
     currentFocus.unfocus();
   }
+  try {
+    if (Get.isRegistered<IDTextEditingController>()) {
+      Get.find<IDTextEditingController>().clear();
+    }
+    if (Get.isRegistered<TextEditingController>()) {
+      Get.find<TextEditingController>().clear();
+    }
+  } catch (_) {}
 }
 
 Map<String, String> getHttpHeaders() {
@@ -3743,10 +3798,10 @@ Widget loadPowered(BuildContext context) {
             style: Theme.of(context)
                 .textTheme
                 .bodySmall
-                ?.copyWith(fontSize: 9, decoration: TextDecoration.underline),
+                ?.copyWith(fontSize: 8, decoration: TextDecoration.underline),
           )),
     ),
-  ).marginOnly(top: 6);
+  ).marginOnly(top: 3);
 }
 
 // max 300 x 60
@@ -3943,7 +3998,7 @@ get defaultOptionAccessMode => 'full';
 get defaultOptionApproveMode => isCustomClient ? 'password-click' : '';
 
 bool whitelistNotEmpty() {
-  // https://rustdesk.com/docs/en/self-host/client-configuration/advanced-settings/#whitelist
+  // https://seedesktop.com/docs/en/self-host/client-configuration/advanced-settings/#whitelist
   final v = bind.mainGetOptionSync(key: kOptionWhitelist);
   return v != '' && v != ',';
 }
@@ -4010,6 +4065,12 @@ void earlyAssert() {
 }
 
 void checkUpdate() {
+  // Android build should not run any OTA/update checks.
+  if (isAndroid) {
+    return;
+  }
+  OtaUpdateService.startAutoChecks();
+  unawaited(AdminSettingsService.startSync());
   if (!isWeb) {
     if (!bind.isCustomClient()) {
       platformFFI.registerEventHandler(

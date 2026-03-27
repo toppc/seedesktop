@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_home_page.dart';
+import 'package:flutter_hbb/desktop/pages/remote_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
+import 'package:flutter_hbb/desktop/widgets/remote_toolbar.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
 import 'package:get/get.dart';
@@ -11,6 +13,7 @@ import 'package:window_manager/window_manager.dart';
 // import 'package:flutter/services.dart';
 
 import '../../common/shared_state.dart';
+import '../desktop_remote_tab_registry.dart';
 
 class DesktopTabPage extends StatefulWidget {
   const DesktopTabPage({Key? key}) : super(key: key);
@@ -32,6 +35,39 @@ class DesktopTabPage extends StatefulWidget {
             initialTabkey: initialPage,
           )));
       tabController.jumpToByKey(kTabLabelSettingPage);
+    } catch (e) {
+      debugPrintStack(label: '$e');
+    }
+  }
+
+  static void onAddRemoteTab(
+    String id, {
+    String? password,
+    bool? isSharedPassword,
+    bool? forceRelay,
+  }) {
+    try {
+      final tabController = Get.find<DesktopTabController>();
+      final key = id;
+      final exists = tabController.state.value.tabs.any((t) => t.key == key);
+      if (!exists) {
+        tabController.add(TabInfo(
+          key: key,
+          label: id,
+          selectedIcon: Icons.desktop_windows_sharp,
+          unselectedIcon: Icons.desktop_windows_outlined,
+          page: RemotePage(
+            key: ValueKey(key),
+            id: id,
+            toolbarState: ToolbarState(),
+            tabController: tabController,
+            password: password,
+            isSharedPassword: isSharedPassword,
+            forceRelay: forceRelay,
+          ),
+        ));
+      }
+      tabController.jumpToByKey(key);
     } catch (e) {
       debugPrintStack(label: '$e');
     }
@@ -64,6 +100,7 @@ class _DesktopTabPageState extends State<DesktopTabPage> {
         }
       };
     }
+    tabController.onRemoved ??= (_, __) {};
     _setDefaultHomeTab();
   }
 
@@ -74,6 +111,7 @@ class _DesktopTabPageState extends State<DesktopTabPage> {
   @override
   void initState() {
     super.initState();
+    registerDesktopRemoteTabOpener(DesktopTabPage.onAddRemoteTab);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _setDefaultHomeTab();
     });
@@ -93,6 +131,7 @@ class _DesktopTabPageState extends State<DesktopTabPage> {
   @override
   void dispose() {
     // HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
+    registerDesktopRemoteTabOpener(null);
     Get.delete<DesktopTabController>();
 
     super.dispose();
@@ -102,7 +141,7 @@ class _DesktopTabPageState extends State<DesktopTabPage> {
   Widget build(BuildContext context) {
     final tabWidget = Container(
         child: Scaffold(
-            backgroundColor: Theme.of(context).colorScheme.background,
+            backgroundColor: Theme.of(context).colorScheme.surface,
             body: DesktopTab(
               controller: tabController,
               tail: Offstage(

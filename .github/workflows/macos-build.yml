@@ -23,9 +23,20 @@ permissions:
 jobs:
   build-macos:
     runs-on: macos-14
-    timeout-minutes: 90
+    timeout-minutes: 120
+    env:
+      # Must match vcpkg.json "baseline" / project CI (see .github/workflows/flutter-build.yml)
+      VCPKG_COMMIT_ID: "120deac3062162151622ca4860575a33844ba10b"
+      VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
 
     steps:
+      - name: Export GitHub Actions cache environment variables
+        uses: actions/github-script@v6
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -54,27 +65,45 @@ jobs:
           cd flutter
           flutter pub get
 
-      # libyuv is not reliably available via Homebrew; RustDesk ships prebuilt Cellar trees (libyuv, etc.) in mac_deps.tar.gz.
-      # magnum-opus expects opus. create-dmg packages the app at the end.
-      - name: Install Rust native dependencies (Homebrew)
+      # Upstream RustDesk mac CI: Homebrew tools + NASM 2.x + vcpkg (libyuv/libvpx/aom/opus/ffmpeg… via manifest).
+      - name: Install build prerequisites (Homebrew)
         run: |
           set -euxo pipefail
           brew update
-          brew install \
-            ninja \
-            create-dmg \
-            opus \
-            aom \
-            libvpx
+          brew install llvm create-dmg cmake ninja
+          if command -v pkg-config &>/dev/null; then
+            echo "pkg-config already present"
+          else
+            brew install pkg-config
+          fi
+          brew install opus
 
-      - name: Download and install macOS dependencies
+      - name: Install NASM 2.16 (required by vcpkg aom/libvpx)
         run: |
           set -euxo pipefail
-          brew install pkg-config cmake
-          curl -fL -o mac_deps.tar.gz \
-            https://github.com/rustdesk/doc.rustdesk.com/releases/download/console/mac_deps.tar.gz
-          tar xzf mac_deps.tar.gz
-          sudo cp -r mac_deps/* /opt/homebrew/Cellar/
+          curl -fLO https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/macosx/nasm-2.16.03-macosx.zip
+          unzip -o nasm-2.16.03-macosx.zip
+          sudo cp nasm-2.16.03/nasm /usr/local/bin/nasm
+          nasm --version
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
+          doNotCache: false
+
+      - name: Install vcpkg dependencies (manifest)
+        run: |
+          set -euxo pipefail
+          if ! "$VCPKG_ROOT/vcpkg" install --x-install-root="$VCPKG_ROOT/installed"; then
+            find "${VCPKG_ROOT}/" -name "*.log" | while read -r _1; do
+              echo "$_1:"
+              echo "======"
+              cat "$_1"
+              echo "======"
+            done
+            exit 1
+          fi
 
       - name: Build macOS release
         run: python3 build.py --flutter

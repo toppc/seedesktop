@@ -1,0 +1,75 @@
+name: Build macOS Installer
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch or tag to build"
+        required: false
+        default: "main"
+  push:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - "libs/**"
+      - "flutter/**"
+      - "build.py"
+      - ".github/workflows/macos-build.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-macos:
+    runs-on: macos-14
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install macOS build tools
+        run: |
+          brew update
+          brew install create-dmg cmake ninja pkg-config
+
+      - name: Flutter dependencies
+        run: |
+          cd flutter
+          flutter pub get
+
+      - name: Build macOS release
+        run: python3 build.py --flutter --skip-portable-pack
+
+      - name: Create DMG installer
+        run: |
+          VERSION=$(python3 -c "import re; print(re.search(r'^version\\s*=\\s*\"([^\"]+)\"', open('Cargo.toml', encoding='utf-8').read(), re.M).group(1))")
+          APP_PATH=$(ls -d flutter/build/macos/Build/Products/Release/*.app | head -n 1)
+          APP_NAME=$(basename "$APP_PATH")
+          create-dmg \
+            --icon "$APP_NAME" 200 190 \
+            --hide-extension "$APP_NAME" \
+            --window-size 800 400 \
+            --app-drop-link 600 185 \
+            "SeeDesktop-${VERSION}-macOS.dmg" \
+            "$APP_PATH"
+
+      - name: Upload installer artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-installer
+          path: |
+            SeeDesktop-*-macOS.dmg
+            flutter/build/macos/Build/Products/Release/*.app
+          if-no-files-found: error

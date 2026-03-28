@@ -7,15 +7,6 @@ on:
         description: "Branch or tag to build"
         required: false
         default: "master"
-  push:
-    branches:
-      - master
-    paths:
-      - "src/**"
-      - "libs/**"
-      - "flutter/**"
-      - "build.py"
-      - ".github/workflows/macos-build.yml"
 
 permissions:
   contents: read

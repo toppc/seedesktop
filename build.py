@@ -25,6 +25,9 @@ else:
 flutter_build_dir_2 = f'flutter/{flutter_build_dir}'
 skip_cargo = False
 
+# Flutter macOS output bundle; must match PRODUCT_NAME in flutter/macos/Runner/Configs/AppInfo.xcconfig
+MACOS_FLUTTER_APP = "SeeDesktop.app"
+
 
 def get_deb_arch() -> str:
     custom_arch = os.environ.get("DEB_ARCH")
@@ -43,6 +46,12 @@ def system2(cmd):
     if exit_code != 0:
         sys.stderr.write(f"Error occurred when executing: `{cmd}`. Exiting.\n")
         sys.exit(-1)
+
+
+def pip_install_req(requirements_rel: str):
+    """Windows often has no `pip3`/`python3` on PATH; use the current interpreter."""
+    rq = requirements_rel.replace("\\", "/")
+    system2(f'"{sys.executable}" -m pip install -r {rq}')
 
 def apply_custom_branding_windows_icons():
     branding_dir = Path("custom_branding")
@@ -434,10 +443,11 @@ def build_flutter_dmg(version, features):
         "cp target/release/liblibrustdesk.dylib target/release/librustdesk.dylib")
     os.chdir('flutter')
     system2('flutter build macos --release')
-    system2('cp -rf ../target/release/service ./build/macos/Build/Products/Release/RustDesk.app/Contents/MacOS/')
+    system2(
+        f'cp -rf ../target/release/service ./build/macos/Build/Products/Release/{MACOS_FLUTTER_APP}/Contents/MacOS/')
     '''
     system2(
-        "create-dmg --volname \"RustDesk Installer\" --window-pos 200 120 --window-size 800 400 --icon-size 100 --app-drop-link 600 185 --icon RustDesk.app 200 190 --hide-extension RustDesk.app rustdesk.dmg ./build/macos/Build/Products/Release/RustDesk.app")
+        f"create-dmg --volname \"SeeDesktop Installer\" --window-pos 200 120 --window-size 800 400 --icon-size 100 --app-drop-link 600 185 --icon {MACOS_FLUTTER_APP} 200 190 --hide-extension {MACOS_FLUTTER_APP} rustdesk.dmg ./build/macos/Build/Products/Release/{MACOS_FLUTTER_APP}")
     os.rename("rustdesk.dmg", f"../rustdesk-{version}.dmg")
     '''
     os.chdir("..")
@@ -468,9 +478,11 @@ def build_flutter_windows(version, features, skip_portable_pack):
     if skip_portable_pack:
         return
     os.chdir('libs/portable')
-    system2('pip3 install -r requirements.txt')
+    pip_install_req('requirements.txt')
+    # BINARY_NAME in flutter/windows/CMakeLists.txt (was rustdesk.exe upstream)
+    flutter_win_exe = 'SeeDesktop.exe'
     system2(
-        f'python3 ./generate.py -f ../../{flutter_build_dir_2} -o . -e ../../{flutter_build_dir_2}/rustdesk.exe')
+        f'"{sys.executable}" ./generate.py -f ../../{flutter_build_dir_2} -o . -e ../../{flutter_build_dir_2}{flutter_win_exe}')
     os.chdir('../..')
     if os.path.exists('./rustdesk_portable.exe'):
         os.replace('./target/release/rustdesk-portable-packer.exe',

@@ -22,7 +22,9 @@ permissions:
 
 jobs:
   build-macos:
-    runs-on: macos-14
+    # Intel x86_64 binary (runs on Intel Macs / VMs). macos-14/arm64 produces arm64-only apps.
+    # GitHub retired macos-13; macos-15-intel is the supported Intel image (see github.blog changelog).
+    runs-on: macos-15-intel
     timeout-minutes: 120
     env:
       # Must match vcpkg.json "baseline" / project CI (see .github/workflows/flutter-build.yml)

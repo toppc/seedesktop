@@ -591,10 +591,8 @@ Future<String?> releaseAllMySessionsByHardwareId(String hardwareId) async {
     final key = (await getSavedLicenseKey())?.trim() ?? '';
     final body = <String, dynamic>{
       'hardware_id': hwid,
+      'license_key': key,
     };
-    if (key.isNotEmpty) {
-      body['license_key'] = key;
-    }
     final endpointUri =
         await _licenseUriFromDefault(kLicenseReleaseAllMySessionsEndpoint);
     final response = await http
@@ -1466,8 +1464,6 @@ class LicenseHeartbeatManager {
     final license = await getSavedLicenseKey();
     final licenseStr = license?.trim() ?? '';
     final localActiveSessions = await getActiveLicenseSessionCount();
-    final isLicensed = licenseStr.isNotEmpty;
-    if (!isLicensed && localActiveSessions <= 0) return;
 
     final prefs = await SharedPreferences.getInstance();
     final hardwareId = prefs.getString(_kHardwareIdPrefsKey)?.trim() ?? '';
@@ -1486,16 +1482,10 @@ class LicenseHeartbeatManager {
       status.value = LicenseServerStatus.reconnecting;
     }
 
-    // Heartbeat is only needed when we currently track local active sessions.
-    if (localActiveSessions <= 0) {
-      if (kDebugMode) {
-        debugPrint('[License] heartbeat skipped: no local active sessions');
-      }
-      return;
-    }
+    // Heartbeat must run for all tiers (empty license_key is pooled server-side).
     if (kDebugMode) {
       debugPrint(
-          '[License] heartbeat running: localActiveSessions=$localActiveSessions');
+          '[License] heartbeat running: localActiveSessions=$localActiveSessions licenseEmpty=${licenseStr.isEmpty}');
     }
 
     final err = await _sendHeartbeatWithBackoff(

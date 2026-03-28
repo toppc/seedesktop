@@ -2523,58 +2523,56 @@ connect(BuildContext context, String id,
   final allowed = await shouldAllowConnectionWithFreemiumGate(context);
   if (!allowed) return;
   final prefs = await SharedPreferences.getInstance();
-  final savedLicense = prefs.getString('saved_license');
-  if (savedLicense != null && savedLicense.trim().isNotEmpty) {
-    final hardwareId = await bind.mainGetUuid();
-    final sessionResult = await startSession(
-      savedLicense,
-      hardwareId: hardwareId,
-      targetPc: id,
-      peerId: id,
-    );
-    if (!sessionResult.approved) {
-      if (sessionResult.limitReached) {
-        await showDialog<void>(
-          context: context,
-          builder: (dialogContext) => AlertDialog(
-            title: const Text('Seat Limit Reached'),
-            content: const Text(
-              'Another station is currently using this license seat. '
-              'Please release a seat from your account, then try again.',
+  final savedLicense = prefs.getString('saved_license')?.trim() ?? '';
+  final hardwareId = await bind.mainGetUuid();
+  final sessionResult = await startSession(
+    savedLicense,
+    hardwareId: hardwareId,
+    targetPc: id,
+    peerId: id,
+  );
+  if (!sessionResult.approved) {
+    if (sessionResult.limitReached) {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Seat Limit Reached'),
+          content: const Text(
+            'Another station is currently using this license seat. '
+            'Please release a seat from your account, then try again.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                await launchUrl(
+                  Uri.parse('https://seedesktop.co.il/my-account/'),
+                );
+              },
+              child: const Text('Open My Account'),
             ),
-            actions: [
-              TextButton(
-                onPressed: () async {
-                  await launchUrl(
-                    Uri.parse('https://seedesktop.co.il/my-account/'),
-                  );
-                },
-                child: const Text('Open My Account'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-        );
-      } else if (sessionResult.message.isNotEmpty) {
-        await showDialog<void>(
-          context: context,
-          builder: (dialogContext) => AlertDialog(
-            title: const Text('License error'),
-            content: Text(sessionResult.message),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-        );
-      }
-      return;
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } else if (sessionResult.message.isNotEmpty) {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('License error'),
+          content: Text(sessionResult.message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
     }
+    return;
   }
   if (!isDesktop || desktopType == DesktopType.main) {
     try {
